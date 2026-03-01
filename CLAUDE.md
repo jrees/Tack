@@ -18,7 +18,7 @@ Named after the sailing term: changing direction together as a crew.
 ## Tech Stack
 | Concern | Choice |
 |---|---|
-| Framework | React Native with Expo (TypeScript, SDK 52+) |
+| Framework | React Native with Expo (TypeScript, SDK 55) |
 | Routing | Expo Router (file-based, like Next.js / Blazor routing) |
 | Backend / DB / Auth | Supabase |
 | Real-time | Supabase Realtime subscriptions |
