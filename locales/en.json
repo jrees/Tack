@@ -1,0 +1,152 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "confirm": "Confirm",
+    "done": "Done",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "close": "Close",
+    "add": "Add",
+    "remove": "Remove",
+    "create": "Create",
+    "update": "Update",
+    "search": "Search",
+    "yes": "Yes",
+    "no": "No",
+    "optional": "Optional",
+    "greeting": "Hello, {{name}}"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "logOut": "Log out",
+    "forgotPassword": "Forgot password?",
+    "resetPassword": "Reset password",
+    "updatePassword": "Update password",
+    "newPassword": "New password",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "resetSent": "Check your email for a reset link",
+    "errors": {
+      "invalidCredentials": "Incorrect email or password",
+      "emailRequired": "Email is required",
+      "passwordRequired": "Password is required",
+      "passwordTooShort": "Password must be at least 8 characters",
+      "passwordMismatch": "Passwords do not match",
+      "emailInUse": "An account with this email already exists",
+      "invalidEmail": "Please enter a valid email address",
+      "generic": "Something went wrong. Please try again"
+    }
+  },
+  "household": {
+    "create": "Create household",
+    "join": "Join household",
+    "name": "Household name",
+    "namePlaceholder": "e.g. The Smith Family",
+    "inviteCode": "Invite code",
+    "members": "Members",
+    "member_one": "{{count}} member",
+    "member_other": "{{count}} members",
+    "roles": {
+      "admin": "Admin",
+      "member": "Member"
+    },
+    "invitePrompt": "Share this code to invite people",
+    "copyCode": "Copy code",
+    "codeCopied": "Invite code copied",
+    "enterCode": "Enter an invite code",
+    "errors": {
+      "nameRequired": "Please give your household a name",
+      "codeRequired": "Please enter an invite code",
+      "codeNotFound": "That code wasn't found. Please check and try again",
+      "alreadyMember": "You're already a member of a household"
+    }
+  },
+  "tasks": {
+    "title": "Tasks",
+    "add": "Add task",
+    "empty": "No tasks yet — add one above",
+    "taskTitle": "Task title",
+    "description": "Description",
+    "assignee": "Assignee",
+    "unassigned": "Unassigned",
+    "dueDate": "Due date",
+    "noDueDate": "No due date",
+    "recurring": "Recurring",
+    "category": "Category",
+    "subtasks": "Subtasks",
+    "addSubtask": "Add subtask",
+    "statuses": {
+      "todo": "To do",
+      "inProgress": "In progress",
+      "done": "Done"
+    },
+    "count_one": "{{count}} task",
+    "count_other": "{{count}} tasks",
+    "errors": {
+      "titleRequired": "Please enter a title"
+    }
+  },
+  "lists": {
+    "title": "Lists",
+    "add": "New list",
+    "empty": "No lists yet",
+    "itemEmpty": "Nothing on this list yet",
+    "addItem": "Add item",
+    "listTitle": "List name",
+    "categories": {
+      "shopping": "Shopping",
+      "gifts": "Gifts",
+      "packing": "Packing",
+      "general": "General"
+    },
+    "archived": "Archived",
+    "pinned": "Pinned",
+    "archive": "Archive list",
+    "unarchive": "Unarchive list",
+    "pin": "Pin to top",
+    "unpin": "Unpin",
+    "count_one": "{{count}} item",
+    "count_other": "{{count}} items",
+    "errors": {
+      "titleRequired": "Please enter a list name"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": "Profile",
+    "displayName": "Display name",
+    "household": "Household",
+    "inviteCode": "Invite code",
+    "leaveHousehold": "Leave household",
+    "leaveConfirm": "Are you sure you want to leave this household?",
+    "subscription": "Subscription",
+    "plan": "Plan",
+    "plans": {
+      "free": "Free",
+      "trial": "Trial",
+      "pro": "Pro",
+      "gifted": "Gifted"
+    },
+    "trialEnds": "Trial ends {{date}}",
+    "upgradeToPro": "Upgrade to Pro",
+    "promoCode": "Enter promo code",
+    "promoCodePlaceholder": "Enter code",
+    "redeemCode": "Redeem",
+    "promoSuccess": "Code redeemed — welcome to {{tier}}!",
+    "about": "About",
+    "version": "Version {{version}}",
+    "errors": {
+      "displayNameRequired": "Please enter a display name",
+      "invalidPromoCode": "That code isn't valid or has already been used"
+    }
+  }
+}
