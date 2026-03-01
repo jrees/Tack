@@ -82,16 +82,16 @@ Nautical identity: muted port-side blue + weathered signal red on sail-canvas pa
 | `background` | `#F5F2EE` | Sail canvas / parchment |
 | `surface` | `#FDFAF6` | Card / panel |
 | `border` | `#E0D9D0` | Natural rope |
-| `primary` | `#4A7BA7` | Muted port-side blue |
+| `primary` | `#3A7DB5` | Port-side blue |
 | `primaryLight` | `#D4E4F0` | Light sea wash |
 | `secondary` | `#B8736B` | Weathered signal buoy red |
 | `secondaryLight` | `#F0DADA` | Light red wash |
 | `text` | `#2C3440` | Near-black navy |
 | `textSecondary` | `#7A8494` | Mid nautical grey |
 | `textMuted` | `#A8B0BC` | Haze |
-| `success` | `#5A9B7A` | Sea-green |
+| `success` | `#2E8B57` | Sea-green |
 | `warning` | `#C4895A` | Brass / lantern amber |
-| `error` | `#B8504A` | Signal red (deeper) |
+| `error` | `#C0392B` | Signal red |
 
 ### Colour Palette — Dark (Night Sailing)
 Deep-sea navy backgrounds; moonlit text; accents lifted for contrast against dark.
@@ -108,9 +108,9 @@ Deep-sea navy backgrounds; moonlit text; accents lifted for contrast against dar
 | `text` | `#E8DEC8` | Moonlit parchment |
 | `textSecondary` | `#9AACBA` | Faded chart ink |
 | `textMuted` | `#5A7080` | Night haze |
-| `success` | `#5AB87A` | Phosphorescence |
+| `success` | `#2E8B57` | Phosphorescence |
 | `warning` | `#C4895A` | Brass lantern |
-| `error` | `#C45A52` | Warning red |
+| `error` | `#C0392B` | Warning red |
 
 ### Usage Pattern
 ```ts

@@ -28,7 +28,7 @@ const lightColors = {
   border: '#E0D9D0',       // Natural rope
 
   // Brand
-  primary: '#4A7BA7',      // Muted port-side blue
+  primary: '#3A7DB5',      // Port-side blue
   primaryLight: '#D4E4F0', // Light sea wash
   secondary: '#B8736B',    // Weathered signal buoy red
   secondaryLight: '#F0DADA', // Light red wash
@@ -39,9 +39,9 @@ const lightColors = {
   textMuted: '#A8B0BC',    // Haze
 
   // Semantic
-  success: '#5A9B7A',      // Sea-green
+  success: '#2E8B57',      // Sea-green
   warning: '#C4895A',      // Brass / lantern amber
-  error: '#B8504A',        // Signal red (deeper)
+  error: '#C0392B',        // Signal red
 } as const
 
 const darkColors = {
@@ -64,9 +64,9 @@ const darkColors = {
   textMuted: '#5A7080',    // Night haze
 
   // Semantic
-  success: '#5AB87A',      // Phosphorescence
+  success: '#2E8B57',      // Phosphorescence
   warning: '#C4895A',      // Brass lantern
-  error: '#C45A52',        // Warning red
+  error: '#C0392B',        // Warning red
 } as const
 
 // ---------------------------------------------------------------------------
