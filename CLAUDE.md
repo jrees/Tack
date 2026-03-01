@@ -55,6 +55,7 @@ Tack/
     theme.ts                 # Design tokens (plain exported object)
     i18n.ts                  # i18next configuration
     suggestions.ts           # Shopping list suggestions
+    plans.ts                 # Subscription tiers and plan limits
   stores/
     authStore.ts
     householdStore.ts
@@ -166,6 +167,16 @@ Extended via `public.profiles` (id FK to auth.users, display_name, avatar_url).
 ### list_items
 `id, list_id, added_by, title, is_checked, checked_by, checked_at, sort_order`
 
+### subscriptions
+`id, user_id (FK auth.users), tier ('free'|'trial'|'pro'|'gifted'),`
+`trial_ends_at, current_period_ends_at, revenuecat_customer_id, gifted_by, created_at, updated_at`
+- Missing row = free tier (no row created on signup)
+- `gifted_by` records who granted comp access
+
+### promo_codes
+`id, code (unique), tier, duration_days (null = lifetime), redeemed_by, redeemed_at, created_at`
+- Single-use codes for gifting access; redeemed via `redeem_promo_code(code)` RPC
+
 ## Row Level Security Principles
 - Every table locked down by default.
 - Users can only read/write rows belonging to their household.
@@ -184,6 +195,7 @@ Extended via `public.profiles` (id FK to auth.users, display_name, avatar_url).
 | 7 | Polish: settings, fonts, tab navigator, dark mode |
 | 8 | Auth extensions: Google Sign-In, Apple Sign-In (requires dev build) |
 | 9 | Future: push notifications |
+| 10 | Monetization: RevenueCat IAP, paywall, promo codes, entitlement gates |
 
 ## Product Principles
 - **Simple UX** — everyday household use, not power users. Fewer taps is better.
@@ -210,11 +222,51 @@ Extended via `public.profiles` (id FK to auth.users, display_name, avatar_url).
 - **Confirm fonts and icons on physical Android device before enabling dark mode.**
 - **Native auth (Google, Apple Sign-In) does not work in Expo Go** — requires a dev build.
 
+## Monetization / Freemium
+
+### Model
+Freemium with a household **member limit** as the gate. Free tier is genuinely useful for couples;
+paid unlocks unlimited members for families and housemates.
+
+| Tier | Max members | Max lists | Max tasks |
+|---|---|---|---|
+| `free` | 2 | 5 | 20 |
+| `trial` | unlimited | unlimited | unlimited |
+| `pro` | unlimited | unlimited | unlimited |
+| `gifted` | unlimited | unlimited | unlimited |
+
+Limits live in `lib/plans.ts` (`PLAN_LIMITS`) — never hardcode them in components.
+
+### Subscription infrastructure
+- **RevenueCat** handles App Store (iOS) and Google Play billing via a single SDK
+- RevenueCat webhooks → Supabase Edge Function → `subscriptions` table
+- `authStore` exposes `tier: SubscriptionTier` — components read this to check entitlements
+
+### Usage pattern
+```ts
+import { PLAN_LIMITS } from '@/lib/plans'
+import { useAuthStore } from '@/stores/authStore'
+
+const tier = useAuthStore(s => s.tier)
+const canAddMember = memberCount < PLAN_LIMITS[tier].maxMembers
+```
+
+### Gift / comp access
+- `gifted` tier granted via single-use promo codes (stored in `promo_codes` table)
+- Codes are generated offline (Supabase dashboard) and shared privately
+- A hidden "Enter promo code" field in Settings allows self-service redemption
+- `gifted` is distinct from `pro` so comped users are identifiable in the DB
+
+### Free trial
+- Trial period configured in App Store Connect / Google Play Console
+- RevenueCat webhook updates `subscriptions.tier = 'trial'` and `trial_ends_at`
+- Settings screen shows a countdown banner during trial; no hard blocks
+
 ## GitHub
 - Repo: https://github.com/jrees/Tack
 - Project board: https://github.com/users/jrees/projects/2
-- Issues use phase labels (`phase-1` through `phase-9`) and type labels
-  (`setup`, `supabase`, `feature`, `auth`, `ui`, `i18n`, `store`, `realtime`, `navigation`)
+- Issues use phase labels (`phase-1` through `phase-10`) and type labels
+  (`setup`, `supabase`, `feature`, `auth`, `ui`, `i18n`, `store`, `realtime`, `navigation`, `billing`)
 
 ## GitHub Issues Labels
 - `setup` — scaffolding and tooling
@@ -226,3 +278,4 @@ Extended via `public.profiles` (id FK to auth.users, display_name, avatar_url).
 - `i18n` — localisation
 - `store` — Zustand state management
 - `realtime` — Supabase realtime subscriptions
+- `billing` — in-app purchases and subscription management
