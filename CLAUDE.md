@@ -67,18 +67,62 @@ Tack/
 ```
 
 ## Theming
-- Plain exported object — `import { t } from '@/lib/theme'` — no hooks, no context.
-- Light mode only to start. Dark mode added after fonts confirmed on Android.
-- Colour palette: warm cream background (`#F5F2EE`), teal accent (`#0D9488`).
+- Plain exported object — `import { theme } from '@/lib/theme'` — no hooks, no context.
+- Light mode first. Dark mode added after fonts confirmed on Android (Phase 7, issue #31).
+- Theme object exposes `light` and `dark` colour sets; components select by colour scheme.
 - Spacing scale: `xs(4)`, `sm(8)`, `md(16)`, `lg(24)`, `xl(32)`.
 - Font tokens: `display` (Lora_700Bold), `heading` (Lora_600SemiBold), `label` (Nunito_600SemiBold).
-- Pattern per component:
-  ```ts
-  import { t } from '@/lib/theme'
-  const styles = StyleSheet.create({
-    container: { backgroundColor: t.colors.background, padding: t.spacing.md }
-  })
-  ```
+
+### Colour Palette — Light (Day Sailing)
+Nautical identity: muted port-side blue + weathered signal red on sail-canvas parchment.
+
+| Token | Hex | Feeling |
+|---|---|---|
+| `background` | `#F5F2EE` | Sail canvas / parchment |
+| `surface` | `#FDFAF6` | Card / panel |
+| `border` | `#E0D9D0` | Natural rope |
+| `primary` | `#4A7BA7` | Muted port-side blue |
+| `primaryLight` | `#D4E4F0` | Light sea wash |
+| `secondary` | `#B8736B` | Weathered signal buoy red |
+| `secondaryLight` | `#F0DADA` | Light red wash |
+| `text` | `#2C3440` | Near-black navy |
+| `textSecondary` | `#7A8494` | Mid nautical grey |
+| `textMuted` | `#A8B0BC` | Haze |
+| `success` | `#5A9B7A` | Sea-green |
+| `warning` | `#C4895A` | Brass / lantern amber |
+| `error` | `#B8504A` | Signal red (deeper) |
+
+### Colour Palette — Dark (Night Sailing)
+Deep-sea navy backgrounds; moonlit text; accents lifted for contrast against dark.
+
+| Token | Hex | Feeling |
+|---|---|---|
+| `background` | `#0D1B2A` | Deep night sea |
+| `surface` | `#1A2B3C` | Chart table below decks |
+| `border` | `#2A3D52` | Subtle hull seam |
+| `primary` | `#7BB8D4` | Moonlit blue |
+| `primaryLight` | `#1A3A52` | Deep blue wash |
+| `secondary` | `#C4736B` | Signal red (lifted for contrast) |
+| `secondaryLight` | `#3D1E1E` | Dark red wash |
+| `text` | `#E8DEC8` | Moonlit parchment |
+| `textSecondary` | `#9AACBA` | Faded chart ink |
+| `textMuted` | `#5A7080` | Night haze |
+| `success` | `#5AB87A` | Phosphorescence |
+| `warning` | `#C4895A` | Brass lantern |
+| `error` | `#C45A52` | Warning red |
+
+### Usage Pattern
+```ts
+import { theme } from '@/lib/theme'
+import { useColorScheme } from 'react-native'
+
+// Inside component:
+const scheme = useColorScheme() ?? 'light'
+const c = theme.colors[scheme]
+const styles = StyleSheet.create({
+  container: { backgroundColor: c.background, padding: theme.spacing.md }
+})
+```
 
 ## Localisation (i18n)
 - **No hardcoded strings anywhere in the app** — every label, button, message goes through `t()`.
