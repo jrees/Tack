@@ -15,6 +15,15 @@ Named after the sailing term: changing direction together as a crew.
 - Editor: VS Code
 - Node: managed via nvm
 
+## Environment Variables
+Required in `.env` (gitignored). See `.env.example` for the template.
+
+| Variable | Where to get it |
+|---|---|
+| `EXPO_PUBLIC_SUPABASE_URL` | Supabase dashboard → Project Settings → API |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase dashboard → Project Settings → API |
+| `EXPO_PUBLIC_SENTRY_DSN` | sentry.io → Project → Settings → Client Keys (DSN) |
+
 ## Tech Stack
 | Concern | Choice |
 |---|---|

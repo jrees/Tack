@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@sentry/react-native": "~7.11.0",
     "@supabase/supabase-js": "^2.98.0",
     "expo": "~55.0.4",
     "expo-localization": "~55.0.8",
