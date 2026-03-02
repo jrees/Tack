@@ -184,6 +184,8 @@ export type Database = {
           list_id: string
           added_by: string
           title: string
+          quantity: string | null
+          note: string | null
           is_checked: boolean
           checked_by: string | null
           checked_at: string | null
@@ -194,6 +196,8 @@ export type Database = {
           list_id: string
           added_by: string
           title: string
+          quantity?: string | null
+          note?: string | null
           is_checked?: boolean
           checked_by?: string | null
           checked_at?: string | null
@@ -201,6 +205,8 @@ export type Database = {
         }
         Update: {
           title?: string
+          quantity?: string | null
+          note?: string | null
           is_checked?: boolean
           checked_by?: string | null
           checked_at?: string | null
