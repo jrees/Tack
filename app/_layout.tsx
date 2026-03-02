@@ -6,7 +6,7 @@ import * as Sentry from '@sentry/react-native'
 import * as SplashScreen from 'expo-splash-screen'
 import * as Linking from 'expo-linking'
 import { useFonts, Lora_700Bold, Lora_600SemiBold } from '@expo-google-fonts/lora'
-import { Nunito_600SemiBold } from '@expo-google-fonts/nunito'
+import { Nunito_400Regular, Nunito_600SemiBold } from '@expo-google-fonts/nunito'
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
@@ -102,6 +102,7 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Lora_700Bold,
     Lora_600SemiBold,
+    Nunito_400Regular,
     Nunito_600SemiBold,
   })
 

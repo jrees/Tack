@@ -1,0 +1,48 @@
+import { ActivityIndicator, Pressable, StyleSheet, Text, useColorScheme } from 'react-native'
+import { theme } from '@/lib/theme'
+
+type Props = {
+  title: string
+  onPress: () => void
+  isLoading?: boolean
+  disabled?: boolean
+}
+
+export function PrimaryButton({ title, onPress, isLoading, disabled }: Props) {
+  const scheme = useColorScheme() ?? 'light'
+  const c = theme.colors[scheme]
+  const isDisabled = isLoading || disabled
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={isDisabled}
+      style={({ pressed }) => [
+        styles.button,
+        {
+          backgroundColor: c.primary,
+          opacity: pressed || isDisabled ? 0.65 : 1,
+        },
+      ]}
+    >
+      {isLoading ? (
+        <ActivityIndicator color={c.surface} />
+      ) : (
+        <Text style={[styles.label, { color: c.surface }]}>{title}</Text>
+      )}
+    </Pressable>
+  )
+}
+
+const styles = StyleSheet.create({
+  button: {
+    height: 48,
+    borderRadius: theme.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  label: {
+    fontSize: 16,
+    fontFamily: theme.fonts.label,
+  },
+})
