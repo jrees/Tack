@@ -33,6 +33,7 @@
       "expo-secure-store",
       "expo-router",
       "expo-localization",
+      "expo-font",
       "@sentry/react-native"
     ]
   }

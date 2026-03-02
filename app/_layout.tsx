@@ -3,27 +3,143 @@
 import '@/lib/i18n'
 
 import * as Sentry from '@sentry/react-native'
-import { Slot } from 'expo-router'
+import * as SplashScreen from 'expo-splash-screen'
+import * as Linking from 'expo-linking'
+import { useFonts, Lora_700Bold, Lora_600SemiBold } from '@expo-google-fonts/lora'
+import { Nunito_600SemiBold } from '@expo-google-fonts/nunito'
+import { Slot, useRouter, useSegments } from 'expo-router'
+import { useEffect, useState } from 'react'
+import { useAuthStore } from '@/stores/authStore'
+import { supabase } from '@/lib/supabase'
 
-// Initialise Sentry as early as possible so it captures errors in all
-// subsequent imports and lifecycle hooks. The DSN is a public identifier —
-// safe to ship in the bundle. When EXPO_PUBLIC_SENTRY_DSN is empty (e.g.
-// a dev environment without a Sentry project) this call is a safe no-op.
+// Keep the splash screen visible until we explicitly call hideAsync().
+SplashScreen.preventAutoHideAsync()
+
+// Initialise Sentry as early as possible.
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
   debug: __DEV__,
 })
 
-/**
- * Root layout — the single ancestor wrapping every screen in the app.
- *
- * Phase 1: minimal shell. Expo Router renders child routes via <Slot />.
- *
- * Future phases will add here:
- *   - Font loading + SplashScreen gating       (Phase 2)
- *   - Auth session listener + redirect logic   (Phase 2)
- *   - Tab / stack navigator structure          (Phase 7)
- */
+// ---------------------------------------------------------------------------
+// Household membership check
+// ---------------------------------------------------------------------------
+// Returns null while loading, false if no household, true if member of one.
+// Phase 3 (householdStore) will supersede this lightweight query.
+// ---------------------------------------------------------------------------
+
+function useHouseholdCheck(userId: string | undefined): boolean | null {
+  const [hasHousehold, setHasHousehold] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!userId) {
+      setHasHousehold(null)
+      return
+    }
+
+    supabase
+      .from('household_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .then(({ count }) => {
+        setHasHousehold((count ?? 0) > 0)
+      })
+  }, [userId])
+
+  return hasHousehold
+}
+
+// ---------------------------------------------------------------------------
+// Auth + routing guard
+// ---------------------------------------------------------------------------
+// Analogous to a Blazor AuthorizeRouteView — after each auth or household
+// state change this hook redirects to the correct route group.
+// ---------------------------------------------------------------------------
+
+function useAuthGuard(hasHousehold: boolean | null) {
+  const segments = useSegments()
+  const router = useRouter()
+  const { session, isLoading, isPasswordRecovery } = useAuthStore()
+
+  useEffect(() => {
+    // Don't redirect until auth has resolved — avoids flicker on cold start.
+    if (isLoading) return
+
+    // During password recovery the user must stay on the update-password
+    // screen; let the screen itself handle completion.
+    if (isPasswordRecovery) return
+
+    const inAuthGroup      = segments[0] === '(auth)'
+    const inHouseholdGroup = segments[0] === '(household)'
+
+    if (!session) {
+      if (!inAuthGroup) router.replace('/(auth)/login')
+      return
+    }
+
+    // Session exists but household query hasn't resolved yet — wait.
+    if (hasHousehold === null) return
+
+    if (!hasHousehold) {
+      if (!inHouseholdGroup) router.replace('/(household)/setup')
+    } else {
+      if (inAuthGroup || inHouseholdGroup) router.replace('/(app)')
+    }
+  }, [session, isLoading, isPasswordRecovery, hasHousehold, segments])
+}
+
+// ---------------------------------------------------------------------------
+// Root layout
+// ---------------------------------------------------------------------------
+
 export default function RootLayout() {
+  const initialize = useAuthStore(s => s.initialize)
+  const { session, isLoading } = useAuthStore()
+
+  // Load custom fonts — Lora (display/heading) and Nunito (labels).
+  // expo-file-system is installed as a peer requirement for expo-font to work
+  // correctly on Android (without it, vector icons render as CJK characters).
+  const [fontsLoaded] = useFonts({
+    Lora_700Bold,
+    Lora_600SemiBold,
+    Nunito_600SemiBold,
+  })
+
+  // Initialise auth store once on mount — loads the persisted session.
+  useEffect(() => {
+    initialize()
+  }, [])
+
+  // Hide splash only when BOTH auth AND fonts are ready.
+  useEffect(() => {
+    if (!isLoading && fontsLoaded) {
+      SplashScreen.hideAsync()
+    }
+  }, [isLoading, fontsLoaded])
+
+  // Deep link handler for password recovery.
+  // Supabase emails a link like: tack://update-password?token_hash=abc&type=recovery
+  // When tapped, Expo's Linking API fires this event and we hand it to the
+  // store, which exchanges the token hash for a live session.
+  useEffect(() => {
+    const handleUrl = async ({ url }: { url: string }) => {
+      if (url.includes('type=recovery') || url.includes('update-password')) {
+        await useAuthStore.getState().handlePasswordRecoveryUrl(url)
+      }
+    }
+
+    // Cold-start: app opened via the link.
+    Linking.getInitialURL().then(url => {
+      if (url) handleUrl({ url })
+    })
+
+    // Warm: link opened while app is already running.
+    const subscription = Linking.addEventListener('url', handleUrl)
+    return () => subscription.remove()
+  }, [])
+
+  const hasHousehold = useHouseholdCheck(session?.user?.id)
+  useAuthGuard(hasHousehold)
+
   return <Slot />
 }
