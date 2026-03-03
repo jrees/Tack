@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { StyleSheet, Text, TextInput, TextInputProps, View, useColorScheme } from 'react-native'
-import { theme } from '@/lib/theme'
+import { theme, type ColorScheme } from '@/lib/theme'
 
 type Props = TextInputProps & {
   label: string
@@ -8,7 +8,7 @@ type Props = TextInputProps & {
 }
 
 export function FormInput({ label, error, style, ...props }: Props) {
-  const scheme = useColorScheme() ?? 'light'
+  const scheme: ColorScheme = useColorScheme() === 'dark' ? 'dark' : 'light'
   const c = theme.colors[scheme]
   const [focused, setFocused] = useState(false)
 

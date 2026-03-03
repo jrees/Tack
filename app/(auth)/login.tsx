@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { theme } from '@/lib/theme'
+import { theme, type ColorScheme } from '@/lib/theme'
 import { useAuthStore } from '@/stores/authStore'
 import { FormInput } from '@/components/FormInput'
 import { PrimaryButton } from '@/components/PrimaryButton'
@@ -26,7 +26,7 @@ function mapError(msg: string, t: ReturnType<typeof useTranslation>['t']): strin
 
 export default function LoginScreen() {
   const { t } = useTranslation()
-  const scheme = useColorScheme() ?? 'light'
+  const scheme: ColorScheme = useColorScheme() === 'dark' ? 'dark' : 'light'
   const c = theme.colors[scheme]
   const router = useRouter()
   const signIn = useAuthStore(s => s.signIn)

@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, useColorScheme } from 'react-native'
-import { theme } from '@/lib/theme'
+import { theme, type ColorScheme } from '@/lib/theme'
 
 type Props = {
   title: string
@@ -9,7 +9,7 @@ type Props = {
 }
 
 export function PrimaryButton({ title, onPress, isLoading, disabled }: Props) {
-  const scheme = useColorScheme() ?? 'light'
+  const scheme: ColorScheme = useColorScheme() === 'dark' ? 'dark' : 'light'
   const c = theme.colors[scheme]
   const isDisabled = isLoading || disabled
 

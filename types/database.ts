@@ -41,6 +41,7 @@ export type Database = {
           display_name?: string | null
           avatar_url?: string | null
         }
+        Relationships: []
       }
 
       households: {
@@ -60,6 +61,7 @@ export type Database = {
           name?: string
           invite_code?: string
         }
+        Relationships: []
       }
 
       household_members: {
@@ -80,6 +82,7 @@ export type Database = {
         Update: {
           role?: MemberRole
         }
+        Relationships: []
       }
 
       tasks: {
@@ -124,6 +127,7 @@ export type Database = {
           category?: string | null
           completed_at?: string | null
         }
+        Relationships: []
       }
 
       task_subtasks: {
@@ -147,6 +151,7 @@ export type Database = {
           title?: string
           is_done?: boolean
         }
+        Relationships: []
       }
 
       lists: {
@@ -176,6 +181,7 @@ export type Database = {
           is_archived?: boolean
           is_pinned?: boolean
         }
+        Relationships: []
       }
 
       list_items: {
@@ -212,6 +218,7 @@ export type Database = {
           checked_at?: string | null
           sort_order?: number
         }
+        Relationships: []
       }
 
       subscriptions: {
@@ -245,6 +252,7 @@ export type Database = {
           gifted_by?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
 
       promo_codes: {
@@ -270,6 +278,7 @@ export type Database = {
           redeemed_by?: string | null
           redeemed_at?: string | null
         }
+        Relationships: []
       }
     }
 
