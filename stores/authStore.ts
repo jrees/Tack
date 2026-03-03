@@ -130,7 +130,7 @@ export const useAuthStore = create<AuthStore>((set) => {
      * Throws on error so callers can show inline feedback.
      */
     signUp: async (email, password, displayName) => {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -142,6 +142,13 @@ export const useAuthStore = create<AuthStore>((set) => {
         },
       })
       if (error) throw error
+
+      // Supabase returns HTTP 200 for repeated signups to prevent email
+      // enumeration, so there is no error to catch. An empty identities array
+      // is the official signal that the address is already confirmed.
+      if (data.user?.identities?.length === 0) {
+        throw new Error('email already in use')
+      }
     },
 
     /**
