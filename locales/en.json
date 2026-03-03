@@ -44,7 +44,11 @@
     "noAccount": "Don't have an account?",
     "hasAccount": "Already have an account?",
     "signInInstead": "Sign in instead?",
-    "resetSent": "Check your email for a reset link",
+    "forgotTagline": "No worries — we'll get you back in",
+    "resetSent": "Check your email",
+    "resetSentBody": "We've sent a password reset link to {{email}}. Tap it to choose a new password.",
+    "resetSentDone": "Done",
+    "rememberPassword": "Remember your password?",
     "passwordStrength": {
       "reqs": {
         "length": "At least 8 characters",

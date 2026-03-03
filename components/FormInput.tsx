@@ -15,7 +15,7 @@ type Props = TextInputProps & {
   hint?: ReactNode
 }
 
-export function FormInput({ label, error, showToggle, hint, style, ...props }: Props) {
+export function FormInput({ label, error, showToggle, hint, secureTextEntry, style, ...props }: Props) {
   const { t } = useTranslation()
   const scheme: ColorScheme = useColorScheme() === 'dark' ? 'dark' : 'light'
   const c = theme.colors[scheme]
@@ -36,7 +36,7 @@ export function FormInput({ label, error, showToggle, hint, style, ...props }: P
           style={[styles.input, { color: c.text }, style]}
           placeholderTextColor={c.textMuted}
           autoCapitalize="none"
-          secureTextEntry={showToggle ? !showText : props.secureTextEntry}
+          secureTextEntry={showToggle ? !showText : secureTextEntry}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           {...props}
