@@ -344,14 +344,25 @@ export default function RegisterScreen() {
                   <View style={styles.formErrorBlock}>
                     <Text style={[styles.formError, { color: c.error }]}>{formError}</Text>
                     {showSignInFallback ? (
-                      <Pressable
-                        onPress={() => router.replace('/(auth)/login')}
-                        style={styles.signInFallback}
-                      >
-                        <Text style={[styles.link, { color: c.primary }]}>
-                          {t('auth.signInInstead')}
-                        </Text>
-                      </Pressable>
+                      <View style={styles.fallbackRow}>
+                        <Pressable
+                          onPress={() => router.replace('/(auth)/login')}
+                          style={styles.fallbackLink}
+                        >
+                          <Text style={[styles.link, { color: c.primary }]}>
+                            {t('auth.signInInstead')}
+                          </Text>
+                        </Pressable>
+                        <Text style={[styles.fallbackSep, { color: c.textMuted }]}>·</Text>
+                        <Pressable
+                          onPress={() => router.replace('/(auth)/forgot-password')}
+                          style={styles.fallbackLink}
+                        >
+                          <Text style={[styles.link, { color: c.primary }]}>
+                            {t('auth.forgotPassword')}
+                          </Text>
+                        </Pressable>
+                      </View>
                     ) : null}
                   </View>
                 ) : null}
@@ -418,8 +429,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: theme.fonts.body,
   },
-  signInFallback: {
+  fallbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingTop: theme.spacing.xs,
+    gap: theme.spacing.sm,
+  },
+  fallbackLink: {
+    paddingVertical: theme.spacing.xs,
+  },
+  fallbackSep: {
+    fontSize: 14,
   },
   buttonWrapper: {
     marginTop: theme.spacing.sm,
