@@ -185,6 +185,7 @@ const styles = StyleSheet.create({
   formError: {
     fontSize: 14,
     fontFamily: theme.fonts.body,
+    marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
   },
   buttonWrapper: {

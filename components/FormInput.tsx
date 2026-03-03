@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View, useColorScheme } from 'react-native'
 import { useTranslation } from 'react-i18next'
 import { theme, type ColorScheme } from '@/lib/theme'
@@ -9,9 +9,13 @@ type Props = TextInputProps & {
   // When true, renders a Show/Hide toggle inside the input.
   // Only meaningful when secureTextEntry is also true.
   showToggle?: boolean
+  // Optional content rendered below the error (before the container's bottom margin).
+  // Use this to attach contextual UI — e.g. a password strength checklist — to a field
+  // without reaching outside the component's spacing contract.
+  hint?: ReactNode
 }
 
-export function FormInput({ label, error, showToggle, style, ...props }: Props) {
+export function FormInput({ label, error, showToggle, hint, style, ...props }: Props) {
   const { t } = useTranslation()
   const scheme: ColorScheme = useColorScheme() === 'dark' ? 'dark' : 'light'
   const c = theme.colors[scheme]
@@ -52,6 +56,7 @@ export function FormInput({ label, error, showToggle, style, ...props }: Props) 
       {error ? (
         <Text style={[styles.errorText, { color: c.error }]}>{error}</Text>
       ) : null}
+      {hint}
     </View>
   )
 }

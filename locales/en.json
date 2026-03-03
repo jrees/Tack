@@ -23,9 +23,15 @@
   },
   "auth": {
     "tagline": "Your household, in sync",
+    "registerTagline": "Let's set up your account",
     "email": "Email",
     "password": "Password",
     "confirmPassword": "Confirm password",
+    "displayName": "Your name",
+    "createAccount": "Create account",
+    "emailConfirmTitle": "Check your inbox",
+    "emailConfirmBody": "We've sent a confirmation link to {{email}}. Tap it to finish setting up your account.",
+    "backToSignIn": "Back to sign in",
     "signIn": "Sign in",
     "signUp": "Sign up",
     "logOut": "Log out",
@@ -37,13 +43,26 @@
     "newPassword": "New password",
     "noAccount": "Don't have an account?",
     "hasAccount": "Already have an account?",
+    "signInInstead": "Sign in instead?",
     "resetSent": "Check your email for a reset link",
+    "passwordStrength": {
+      "reqs": {
+        "length": "At least 8 characters",
+        "upper": "Uppercase letter",
+        "lower": "Lowercase letter",
+        "number": "Number",
+        "symbol": "Symbol"
+      }
+    },
     "errors": {
       "invalidCredentials": "Incorrect email or password",
       "emailRequired": "Email is required",
       "passwordRequired": "Password is required",
       "passwordTooShort": "Password must be at least 8 characters",
-      "passwordMismatch": "Passwords do not match",
+      "passwordWeak": "Password doesn't meet all the requirements",
+      "passwordMismatch": "Passwords don't match",
+      "confirmPasswordRequired": "Please confirm your password",
+      "displayNameRequired": "Please enter your name",
       "emailInUse": "An account with this email already exists",
       "invalidEmail": "Please enter a valid email address",
       "generic": "Something went wrong. Please try again"
