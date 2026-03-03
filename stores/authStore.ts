@@ -79,7 +79,7 @@ async function fetchTier(userId: string): Promise<SubscriptionTier> {
 // Store
 // ---------------------------------------------------------------------------
 
-export const useAuthStore = create<AuthStore>((set, get) => {
+export const useAuthStore = create<AuthStore>((set) => {
   // Wire up the module-level setter so the auth listener can reach the store.
   _setStoreState = (partial) => set(partial as Partial<AuthStore>)
 
@@ -122,22 +122,20 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     },
 
     /**
-     * Register a new user and create their profile row.
-     * Supabase creates the auth.users row; we create the corresponding
-     * public.profiles row immediately after.
+     * Register a new user.
+     * Passes display_name as user metadata so the handle_new_user trigger
+     * can write it to public.profiles automatically (SECURITY DEFINER).
+     * There is no INSERT policy on profiles for client callers — the trigger
+     * is the only correct insertion path.
      * Throws on error so callers can show inline feedback.
      */
     signUp: async (email, password, displayName) => {
-      const { data, error } = await supabase.auth.signUp({ email, password })
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { display_name: displayName } },
+      })
       if (error) throw error
-
-      const userId = data.user?.id
-      if (userId) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({ id: userId, display_name: displayName })
-        if (profileError) throw profileError
-      }
     },
 
     /**
