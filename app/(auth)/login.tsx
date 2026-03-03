@@ -88,6 +88,9 @@ export default function LoginScreen() {
           {/* Brand */}
           <View style={styles.header}>
             <Text style={[styles.appName, { color: c.primary }]}>Tack</Text>
+            <Text style={[styles.tagline, { color: c.textSecondary }]}>
+              {t('auth.tagline')}
+            </Text>
           </View>
 
           {/* Form */}
@@ -107,6 +110,7 @@ export default function LoginScreen() {
               value={password}
               onChangeText={text => { setPassword(text); setPasswordError(''); setFormError('') }}
               secureTextEntry
+              showToggle
               autoComplete="current-password"
               returnKeyType="done"
               onSubmitEditing={handleSignIn}
@@ -117,11 +121,13 @@ export default function LoginScreen() {
               <Text style={[styles.formError, { color: c.error }]}>{formError}</Text>
             ) : null}
 
-            <PrimaryButton
-              title={t('auth.signIn')}
-              onPress={handleSignIn}
-              isLoading={isLoading}
-            />
+            <View style={styles.buttonWrapper}>
+              <PrimaryButton
+                title={t('auth.signIn')}
+                onPress={handleSignIn}
+                isLoading={isLoading}
+              />
+            </View>
 
             <Pressable
               style={styles.forgotLink}
@@ -134,7 +140,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Register */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { borderTopColor: c.border }]}>
             <Text style={[styles.footerText, { color: c.textSecondary }]}>
               {t('auth.noAccount')}
             </Text>
@@ -168,28 +174,37 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.display,
     letterSpacing: -1,
   },
+  tagline: {
+    fontSize: 16,
+    fontFamily: theme.fonts.body,
+    marginTop: theme.spacing.sm,
+  },
   form: {
     marginBottom: theme.spacing.lg,
   },
   formError: {
     fontSize: 14,
-    fontFamily: theme.fonts.label,
-    textAlign: 'center',
+    fontFamily: theme.fonts.body,
     marginBottom: theme.spacing.sm,
+  },
+  buttonWrapper: {
+    marginTop: theme.spacing.sm,
   },
   forgotLink: {
     alignItems: 'center',
     marginTop: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.md,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    borderTopWidth: 1,
+    paddingTop: theme.spacing.lg,
   },
   footerText: {
     fontSize: 14,
-    fontFamily: theme.fonts.label,
+    fontFamily: theme.fonts.body,
   },
   link: {
     fontSize: 14,

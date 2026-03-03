@@ -36,8 +36,8 @@ export function PrimaryButton({ title, onPress, isLoading, disabled }: Props) {
 
 const styles = StyleSheet.create({
   button: {
-    height: 48,
-    borderRadius: theme.radius.md,
+    height: 54,
+    borderRadius: theme.radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },

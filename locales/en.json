@@ -22,12 +22,15 @@
     "greeting": "Hello, {{name}}"
   },
   "auth": {
+    "tagline": "Your household, in sync",
     "email": "Email",
     "password": "Password",
     "confirmPassword": "Confirm password",
     "signIn": "Sign in",
     "signUp": "Sign up",
     "logOut": "Log out",
+    "showPassword": "Show",
+    "hidePassword": "Hide",
     "forgotPassword": "Forgot password?",
     "resetPassword": "Reset password",
     "updatePassword": "Update password",
