@@ -149,8 +149,13 @@ export default function ForgotPasswordScreen() {
     try {
       await sendPasswordResetEmail(email.trim(), 'tack://update-password')
       setSent(true)
-    } catch {
-      setFormError(t('auth.errors.generic'))
+    } catch (err) {
+      const msg = (err as Error).message?.toLowerCase() ?? ''
+      if (msg.includes('rate limit') || msg.includes('429')) {
+        setFormError(t('auth.errors.emailRateLimit'))
+      } else {
+        setFormError(t('auth.errors.generic'))
+      }
     } finally {
       setIsLoading(false)
     }

@@ -70,7 +70,8 @@
       "displayNameRequired": "Please enter your name",
       "emailInUse": "An account with this email already exists",
       "invalidEmail": "Please enter a valid email address",
-      "generic": "Something went wrong. Please try again"
+      "generic": "Something went wrong. Please try again",
+      "emailRateLimit": "Too many attempts — please wait a few minutes and try again"
     }
   },
   "household": {
