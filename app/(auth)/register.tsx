@@ -355,7 +355,7 @@ export default function RegisterScreen() {
                         </Pressable>
                         <Text style={[styles.fallbackSep, { color: c.textMuted }]}>·</Text>
                         <Pressable
-                          onPress={() => router.replace('/(auth)/forgot-password')}
+                          onPress={() => router.replace({ pathname: '/(auth)/forgot-password', params: { email: email.trim() } })}
                           style={styles.fallbackLink}
                         >
                           <Text style={[styles.link, { color: c.primary }]}>

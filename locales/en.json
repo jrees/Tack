@@ -45,6 +45,7 @@
     "hasAccount": "Already have an account?",
     "signInInstead": "Sign in instead?",
     "forgotTagline": "No worries — we'll get you back in",
+    "updatePasswordTagline": "Choose a strong new password",
     "resetSent": "Check your email",
     "resetSentBody": "We've sent a password reset link to {{email}}. Tap it to choose a new password.",
     "resetSentDone": "Done",

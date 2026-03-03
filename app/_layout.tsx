@@ -65,9 +65,17 @@ function useAuthGuard(hasHousehold: boolean | null) {
     // Don't redirect until auth has resolved — avoids flicker on cold start.
     if (isLoading) return
 
-    // During password recovery the user must stay on the update-password
-    // screen; let the screen itself handle completion.
-    if (isPasswordRecovery) return
+    // During password recovery, route to the update-password screen and hold
+    // there until the user submits a new password.  We actively navigate
+    // rather than just returning, because the deep-link URL exchange is async
+    // and the guard may fire before isPasswordRecovery is set — the next time
+    // it fires with isPasswordRecovery=true this redirect corrects the path.
+    if (isPasswordRecovery) {
+      const onUpdatePassword =
+        segments[0] === '(auth)' && segments[1] === 'update-password'
+      if (!onUpdatePassword) router.replace('/(auth)/update-password')
+      return
+    }
 
     const inAuthGroup      = segments[0] === '(auth)'
     const inHouseholdGroup = segments[0] === '(household)'

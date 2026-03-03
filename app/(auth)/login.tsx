@@ -131,7 +131,7 @@ export default function LoginScreen() {
 
             <Pressable
               style={styles.forgotLink}
-              onPress={() => router.push('/(auth)/forgot-password')}
+              onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: { email: email.trim() } })}
             >
               <Text style={[styles.link, { color: c.primary }]}>
                 {t('auth.forgotPassword')}

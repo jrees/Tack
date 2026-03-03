@@ -8,7 +8,7 @@ import {
   View,
   useColorScheme,
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -116,9 +116,10 @@ export default function ForgotPasswordScreen() {
   const scheme: ColorScheme = useColorScheme() === 'dark' ? 'dark' : 'light'
   const c = theme.colors[scheme]
   const router = useRouter()
+  const { email: emailParam } = useLocalSearchParams<{ email?: string }>()
   const sendPasswordResetEmail = useAuthStore(s => s.sendPasswordResetEmail)
 
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(emailParam ?? '')
   const [emailError, setEmailError] = useState('')
   const [formError, setFormError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
