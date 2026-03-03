@@ -133,7 +133,13 @@ export const useAuthStore = create<AuthStore>((set) => {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { display_name: displayName } },
+        options: {
+          data: { display_name: displayName },
+          // After email confirmation the browser redirects to this deep link.
+          // The OS opens the app at the login screen; the user signs in normally.
+          // tack://** must be in the Supabase Auth redirect URL allowlist.
+          emailRedirectTo: 'tack://login',
+        },
       })
       if (error) throw error
     },
