@@ -286,8 +286,8 @@ export type Database = {
 
     Functions: {
       find_household_by_invite_code: {
-        Args: { invite_code: string }
-        Returns: { id: string; name: string } | null
+        Args: { code: string }
+        Returns: { id: string; name: string }[]
       }
       redeem_promo_code: {
         Args: { code: string }

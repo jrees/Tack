@@ -75,6 +75,7 @@
     }
   },
   "household": {
+    "setupTagline": "Set up your household",
     "create": "Create household",
     "join": "Join household",
     "name": "Household name",
