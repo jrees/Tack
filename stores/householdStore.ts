@@ -164,22 +164,38 @@ export const useHouseholdStore = create<HouseholdStore>((set, get) => ({
    * Fetch all members of a household, joined with their profile display names.
    */
   fetchMembers: async (householdId) => {
-    const { data, error } = await supabase
+    // household_members.user_id has no FK to profiles in the schema, so we
+    // can't use PostgREST's FK join syntax. Instead, fetch members then
+    // fetch the matching profiles in a second query.
+    const { data: memberRows, error: membersError } = await supabase
       .from('household_members')
-      .select('*, profiles(display_name, avatar_url)')
+      .select('*')
       .eq('household_id', householdId)
 
-    if (error) throw error
+    if (membersError) throw membersError
 
-    const members: MemberWithProfile[] = (data ?? []).map(row => ({
+    const userIds = (memberRows ?? []).map(r => r.user_id)
+
+    const { data: profileRows } = userIds.length
+      ? await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url')
+          .in('id', userIds)
+      : { data: [] }
+
+    const profileMap = Object.fromEntries(
+      (profileRows ?? []).map(p => [p.id, p])
+    )
+
+    const members: MemberWithProfile[] = (memberRows ?? []).map(row => ({
       id: row.id,
       household_id: row.household_id,
       user_id: row.user_id,
       role: row.role as HouseholdMember['role'],
       joined_at: row.joined_at,
       profile: {
-        display_name: (row.profiles as any)?.display_name ?? null,
-        avatar_url: (row.profiles as any)?.avatar_url ?? null,
+        display_name: profileMap[row.user_id]?.display_name ?? null,
+        avatar_url: profileMap[row.user_id]?.avatar_url ?? null,
       },
     }))
 
@@ -189,5 +205,8 @@ export const useHouseholdStore = create<HouseholdStore>((set, get) => ({
   /**
    * Clear household state on sign-out.
    */
-  reset: () => set({ currentHousehold: null, members: [], isLoading: false }),
+  // isLoading stays true — the guard only checks it when session exists,
+  // so this is harmless when there's no session and prevents the gap between
+  // reset() and the next fetchHousehold() call from causing a premature redirect.
+  reset: () => set({ currentHousehold: null, members: [], isLoading: true }),
 }))
