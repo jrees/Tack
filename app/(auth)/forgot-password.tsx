@@ -9,6 +9,7 @@ import {
   useColorScheme,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import * as Linking from 'expo-linking'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -147,7 +148,9 @@ export default function ForgotPasswordScreen() {
 
     setIsLoading(true)
     try {
-      await sendPasswordResetEmail(email.trim(), 'tack://update-password')
+      // Linking.createURL returns exp://... in Expo Go and tack://... in a
+      // real build — ensures the OS knows which app to open from the email link.
+      await sendPasswordResetEmail(email.trim(), Linking.createURL('update-password'))
       setSent(true)
     } catch (err) {
       const msg = (err as Error).message?.toLowerCase() ?? ''

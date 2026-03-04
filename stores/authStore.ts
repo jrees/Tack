@@ -38,6 +38,12 @@ type AuthStore = AuthState & AuthActions
 
 let _setStoreState: ((partial: Partial<AuthState>) => void) | null = null
 
+// True while handlePasswordRecoveryUrl is mid-flight calling setSession().
+// setSession() fires SIGNED_IN (not PASSWORD_RECOVERY), so without this flag
+// the auth listener would reset isPasswordRecovery to false before we can set
+// it back to true.
+let _isHandlingRecovery = false
+
 supabase.auth.onAuthStateChange((event, session) => {
   if (!_setStoreState) return
 
@@ -49,7 +55,9 @@ supabase.auth.onAuthStateChange((event, session) => {
   _setStoreState({
     session,
     user: session?.user ?? null,
-    isPasswordRecovery: false,
+    // Don't clear isPasswordRecovery while we're inside handlePasswordRecoveryUrl
+    // — the SIGNED_IN event from setSession() must not clobber the flag.
+    ...(!_isHandlingRecovery && { isPasswordRecovery: false }),
   })
 
   // Fetch subscription tier whenever the user session changes.
@@ -175,30 +183,59 @@ export const useAuthStore = create<AuthStore>((set) => {
     },
 
     /**
-     * Parse a password-recovery deep link URL, extract the tokens, and
-     * establish a session so the user can call `updatePassword`.
+     * Parse a password-recovery deep link URL and establish a session so the
+     * user can call `updatePassword`.
      *
-     * Supabase embeds the token_hash in the URL fragment; we exchange it for
-     * a full session using `verifyOtp` with `type: 'recovery'`.
+     * Supabase delivers credentials in one of two formats depending on the
+     * auth flow configured:
+     *
+     * A) token_hash in query string (newer PKCE-adjacent flow):
+     *    tack://update-password?token_hash=abc&type=recovery
+     *    → call verifyOtp to exchange the hash for a session.
+     *
+     * B) access_token + refresh_token in URL fragment (implicit flow, default):
+     *    tack://update-password#access_token=abc&refresh_token=xyz&type=recovery
+     *    → call setSession directly with the tokens.
+     *
+     * In Expo Go the scheme is exp:// rather than tack://, but the rest of the
+     * URL structure and parsing is identical.
      */
     handlePasswordRecoveryUrl: async (url) => {
-      // Extract the token_hash query param from URLs like:
-      // tack://update-password?token_hash=abc123&type=recovery
-      const tokenHashMatch = url.match(/[?&]token_hash=([^&]+)/)
-      if (!tokenHashMatch) return
+      // --- Format A: token_hash as query param ---
+      const queryString = url.split('?')[1]?.split('#')[0] ?? ''
+      const queryParams = new URLSearchParams(queryString)
+      const tokenHash = queryParams.get('token_hash')
 
-      const tokenHash = decodeURIComponent(tokenHashMatch[1])
-      const { data, error } = await supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: 'recovery',
-      })
-      if (error) throw error
+      if (tokenHash) {
+        const { data, error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: 'recovery',
+        })
+        if (error) throw error
+        set({ session: data.session, user: data.user, isPasswordRecovery: true })
+        return
+      }
 
-      set({
-        session: data.session,
-        user: data.user,
-        isPasswordRecovery: true,
-      })
+      // --- Format B: access_token + refresh_token in URL fragment ---
+      const fragment = url.split('#')[1] ?? ''
+      const fragmentParams = new URLSearchParams(fragment)
+      const accessToken = fragmentParams.get('access_token')
+      const refreshToken = fragmentParams.get('refresh_token')
+      const type = fragmentParams.get('type')
+
+      if (accessToken && refreshToken && type === 'recovery') {
+        _isHandlingRecovery = true
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+          if (error) throw error
+          set({ session: data.session, user: data.user, isPasswordRecovery: true })
+        } finally {
+          _isHandlingRecovery = false
+        }
+      }
     },
 
     /**
