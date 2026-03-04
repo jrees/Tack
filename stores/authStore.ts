@@ -18,7 +18,7 @@ type AuthState = {
 type AuthActions = {
   initialize: () => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, displayName: string) => Promise<void>
+  signUp: (email: string, password: string, displayName: string, redirectTo: string) => Promise<void>
   signOut: () => Promise<void>
   sendPasswordResetEmail: (email: string, redirectTo: string) => Promise<void>
   handlePasswordRecoveryUrl: (url: string) => Promise<void>
@@ -137,16 +137,16 @@ export const useAuthStore = create<AuthStore>((set) => {
      * is the only correct insertion path.
      * Throws on error so callers can show inline feedback.
      */
-    signUp: async (email, password, displayName) => {
+    signUp: async (email, password, displayName, redirectTo) => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { display_name: displayName },
           // After email confirmation the browser redirects to this deep link.
-          // The OS opens the app at the login screen; the user signs in normally.
-          // tack://** must be in the Supabase Auth redirect URL allowlist.
-          emailRedirectTo: 'tack://login',
+          // redirectTo is supplied by the caller via Linking.createURL() so it
+          // resolves to exp://... in Expo Go and tack://... in a production build.
+          emailRedirectTo: redirectTo,
         },
       })
       if (error) throw error

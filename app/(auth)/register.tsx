@@ -9,6 +9,7 @@ import {
   useColorScheme,
 } from 'react-native'
 import { useRouter } from 'expo-router'
+import * as Linking from 'expo-linking'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -273,7 +274,7 @@ export default function RegisterScreen() {
 
     setIsLoading(true)
     try {
-      await signUp(email.trim(), password, displayName.trim())
+      await signUp(email.trim(), password, displayName.trim(), Linking.createURL('login'))
       setRegistered(true)
     } catch (err) {
       const message = (err as Error).message
