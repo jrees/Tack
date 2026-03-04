@@ -116,6 +116,8 @@ export default function RootLayout() {
     const handleUrl = async ({ url }: { url: string }) => {
       if (url.includes('type=recovery') || url.includes('update-password')) {
         await useAuthStore.getState().handlePasswordRecoveryUrl(url)
+      } else if (url.includes('type=signup')) {
+        await useAuthStore.getState().handleEmailConfirmationUrl(url)
       }
     }
 

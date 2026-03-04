@@ -50,16 +50,19 @@ export type Database = {
           name: string
           created_at: string
           invite_code: string
+          created_by: string | null
         }
         Insert: {
           id?: string
           name: string
           created_at?: string
           invite_code: string
+          created_by?: string | null
         }
         Update: {
           name?: string
           invite_code?: string
+          created_by?: string | null
         }
         Relationships: []
       }

@@ -93,7 +93,7 @@ export const useHouseholdStore = create<HouseholdStore>((set, get) => ({
 
       const { data: household, error: householdError } = await supabase
         .from('households')
-        .insert({ name: name.trim(), invite_code: inviteCode })
+        .insert({ name: name.trim(), invite_code: inviteCode, created_by: userId })
         .select()
         .single()
 

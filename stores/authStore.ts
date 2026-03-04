@@ -22,6 +22,7 @@ type AuthActions = {
   signOut: () => Promise<void>
   sendPasswordResetEmail: (email: string, redirectTo: string) => Promise<void>
   handlePasswordRecoveryUrl: (url: string) => Promise<void>
+  handleEmailConfirmationUrl: (url: string) => Promise<void>
   updatePassword: (newPassword: string) => Promise<void>
 }
 
@@ -107,6 +108,20 @@ export const useAuthStore = create<AuthStore>((set) => {
      */
     initialize: async () => {
       const { data: { session } } = await supabase.auth.getSession()
+
+      // getSession() reads from SecureStore and trusts it without hitting the
+      // server. If the user was deleted in the dashboard (or the session was
+      // revoked), the local token will fail RLS checks (auth.uid() → NULL).
+      // getUser() validates against the server and returns an error for stale
+      // sessions, letting us clear state before the UI tries anything.
+      if (session) {
+        const { error } = await supabase.auth.getUser()
+        if (error) {
+          await supabase.auth.signOut()
+          set({ session: null, user: null, tier: 'free', isLoading: false })
+          return
+        }
+      }
 
       const tier = session?.user
         ? await fetchTier(session.user.id)
@@ -235,6 +250,30 @@ export const useAuthStore = create<AuthStore>((set) => {
         } finally {
           _isHandlingRecovery = false
         }
+      }
+    },
+
+    /**
+     * Parse an email-confirmation deep link and establish a session.
+     *
+     * Supabase sends tokens in the URL fragment for the implicit flow:
+     *   tack://login#access_token=abc&refresh_token=xyz&type=signup
+     * Calling setSession() triggers onAuthStateChange (SIGNED_IN), which
+     * updates the store automatically — no manual set() needed here.
+     */
+    handleEmailConfirmationUrl: async (url) => {
+      const fragment = url.split('#')[1] ?? ''
+      const params = new URLSearchParams(fragment)
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token')
+      const type = params.get('type')
+
+      if (accessToken && refreshToken && type === 'signup') {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+        if (error) throw error
       }
     },
 
