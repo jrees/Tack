@@ -138,8 +138,13 @@ export default function UpdatePasswordScreen() {
       // On success, updatePassword sets isPasswordRecovery = false.
       // The auth guard then fires and redirects to /(app) or /(household)/setup
       // automatically — no explicit navigation needed here.
-    } catch {
-      setFormError(t('auth.errors.generic'))
+    } catch (err) {
+      const msg = (err as Error).message?.toLowerCase() ?? ''
+      if (msg.includes('same_password') || msg.includes('should be different')) {
+        setFormError(t('auth.errors.samePassword'))
+      } else {
+        setFormError(t('auth.errors.generic'))
+      }
     } finally {
       setIsLoading(false)
     }

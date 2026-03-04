@@ -71,7 +71,8 @@
       "emailInUse": "An account with this email already exists",
       "invalidEmail": "Please enter a valid email address",
       "generic": "Something went wrong. Please try again",
-      "emailRateLimit": "Too many attempts — please wait a few minutes and try again"
+      "emailRateLimit": "Too many attempts — please wait a few minutes and try again",
+      "samePassword": "Your new password must be different from your current one"
     }
   },
   "household": {
