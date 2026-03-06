@@ -9,6 +9,7 @@ import { useFonts, Lora_700Bold, Lora_600SemiBold } from '@expo-google-fonts/lor
 import { Nunito_400Regular, Nunito_600SemiBold } from '@expo-google-fonts/nunito'
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { useEffect } from 'react'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useAuthStore } from '@/stores/authStore'
 import { useHouseholdStore } from '@/stores/householdStore'
 import { useListStore } from '@/stores/listStore'
@@ -142,5 +143,9 @@ export default function RootLayout() {
 
   useAuthGuard()
 
-  return <Slot />
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Slot />
+    </GestureHandlerRootView>
+  )
 }
