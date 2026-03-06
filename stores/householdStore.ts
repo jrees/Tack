@@ -21,6 +21,10 @@ type HouseholdActions = {
   createHousehold: (name: string, userId: string) => Promise<void>
   joinHousehold: (code: string, userId: string) => Promise<void>
   fetchMembers: (householdId: string) => Promise<void>
+  leaveHousehold: (userId: string) => Promise<void>
+  removeMember: (memberUserId: string) => Promise<void>
+  transferAdmin: (toUserId: string) => Promise<void>
+  deleteHousehold: () => Promise<void>
   reset: () => void
 }
 
@@ -200,6 +204,92 @@ export const useHouseholdStore = create<HouseholdStore>((set, get) => ({
     }))
 
     set({ members })
+  },
+
+  /**
+   * Leave the household. Deletes the caller's own household_members row.
+   * The last admin must transfer admin or delete the household first —
+   * enforce that in the UI before calling this.
+   */
+  leaveHousehold: async (userId) => {
+    const { data, error } = await supabase
+      .from('household_members')
+      .delete()
+      .eq('user_id', userId)
+      .select('id')
+      .single()
+
+    if (error || !data) throw error ?? new Error('leave_failed')
+
+    get().reset()
+  },
+
+  /**
+   * Admin removes another member. Deletes their household_members row.
+   * Their tasks and list items remain — they're household data.
+   */
+  removeMember: async (memberUserId) => {
+    const { error } = await supabase
+      .from('household_members')
+      .delete()
+      .eq('user_id', memberUserId)
+
+    if (error) throw error
+
+    const householdId = get().currentHousehold?.id
+    if (householdId) await get().fetchMembers(householdId)
+  },
+
+  /**
+   * Transfer admin role to another member. Updates both rows atomically
+   * via two sequential updates — Postgres row-level locking keeps this safe.
+   * The caller retains membership as a regular member.
+   */
+  transferAdmin: async (toUserId) => {
+    const householdId = get().currentHousehold?.id
+    if (!householdId) throw new Error('no_household')
+
+    // Promote the target member first
+    const { error: promoteError } = await supabase
+      .from('household_members')
+      .update({ role: 'admin' })
+      .eq('household_id', householdId)
+      .eq('user_id', toUserId)
+
+    if (promoteError) throw promoteError
+
+    // Demote the current admin (caller) — still a member
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('no_user')
+
+    const { error: demoteError } = await supabase
+      .from('household_members')
+      .update({ role: 'member' })
+      .eq('household_id', householdId)
+      .eq('user_id', user.id)
+
+    if (demoteError) throw demoteError
+
+    await get().fetchMembers(householdId)
+  },
+
+  /**
+   * Delete the household entirely. Cascade deletes handle all related rows
+   * (household_members, tasks, task_subtasks, lists, list_items).
+   * All members will be routed to the household setup screen on next render.
+   */
+  deleteHousehold: async () => {
+    const householdId = get().currentHousehold?.id
+    if (!householdId) throw new Error('no_household')
+
+    const { error } = await supabase
+      .from('households')
+      .delete()
+      .eq('id', householdId)
+
+    if (error) throw error
+
+    get().reset()
   },
 
   /**

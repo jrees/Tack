@@ -93,11 +93,27 @@
     "copyCode": "Copy code",
     "codeCopied": "Invite code copied",
     "enterCode": "Enter an invite code",
+    "manage": "Manage household",
+    "leaveHousehold": "Leave household",
+    "leaveConfirm": "Are you sure you want to leave this household?",
+    "leaveLastAdminOthers": "You're the only admin. Transfer admin to someone else before leaving.",
+    "leaveLastAdminAlone": "You're the only member. Delete the household to leave.",
+    "removeMember": "Remove member",
+    "removeConfirm": "Remove {{name}} from the household?",
+    "makeAdmin": "Make admin",
+    "transferAdmin": "Transfer admin",
+    "transferAdminConfirm": "Make {{name}} the admin? You'll become a regular member.",
+    "deleteHousehold": "Delete household",
+    "deleteConfirm": "Delete this household? This will permanently remove all tasks, lists, and members.",
     "errors": {
       "nameRequired": "Please give your household a name",
       "codeRequired": "Please enter an invite code",
       "codeNotFound": "That code wasn't found. Please check and try again",
-      "alreadyMember": "You're already a member of a household"
+      "alreadyMember": "You're already a member of a household",
+      "leaveFailed": "Couldn't leave the household. Please try again.",
+      "removeFailed": "Couldn't remove that member. Please try again.",
+      "transferFailed": "Couldn't transfer admin. Please try again.",
+      "deleteFailed": "Couldn't delete the household. Please try again."
     }
   },
   "tasks": {
@@ -156,8 +172,6 @@
     "displayName": "Display name",
     "household": "Household",
     "inviteCode": "Invite code",
-    "leaveHousehold": "Leave household",
-    "leaveConfirm": "Are you sure you want to leave this household?",
     "subscription": "Subscription",
     "plan": "Plan",
     "plans": {

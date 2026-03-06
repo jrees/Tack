@@ -1,11 +1,13 @@
-import { StyleSheet, Text, View, useColorScheme } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, useColorScheme } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { theme, type ColorScheme } from '@/lib/theme'
 import { useHouseholdStore } from '@/stores/householdStore'
 
 export default function DashboardScreen() {
   const { t } = useTranslation()
+  const router = useRouter()
   const scheme: ColorScheme = useColorScheme() === 'dark' ? 'dark' : 'light'
   const c = theme.colors[scheme]
   const household = useHouseholdStore(s => s.currentHousehold)
@@ -15,9 +17,14 @@ export default function DashboardScreen() {
       <View style={styles.container}>
         <Text style={[styles.name, { color: c.primary }]}>Tack</Text>
         <Text style={[styles.household, { color: c.text }]}>{household?.name}</Text>
-        <Text style={[styles.note, { color: c.textSecondary }]}>
-          {t('common.loading')}
-        </Text>
+        <TouchableOpacity
+          style={styles.manageButton}
+          onPress={() => router.push('/(app)/household')}
+        >
+          <Text style={[styles.manageLink, { color: c.primary }]}>
+            {t('household.manage')}
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   )
@@ -41,9 +48,12 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.heading,
     marginTop: theme.spacing.sm,
   },
-  note: {
-    fontSize: 14,
-    fontFamily: theme.fonts.body,
+  manageButton: {
     marginTop: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+  },
+  manageLink: {
+    fontSize: 15,
+    fontFamily: theme.fonts.label,
   },
 })
