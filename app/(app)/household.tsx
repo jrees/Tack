@@ -304,8 +304,8 @@ export default function HouseholdScreen() {
 
         {/* Leave — neutral tone for regular members, always available */}
         <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <TouchableOpacity style={styles.leaveRow} onPress={handleLeavePress}>
-            <Text style={[styles.leaveText, { color: c.error }]}>
+          <TouchableOpacity style={styles.actionRow} onPress={handleLeavePress}>
+            <Text style={[styles.actionRowText, { color: c.error }]}>
               {t('household.leaveHousehold')}
             </Text>
           </TouchableOpacity>
@@ -318,10 +318,10 @@ export default function HouseholdScreen() {
         {isAdmin && (
           <View style={[styles.dangerSection, { backgroundColor: c.secondaryLight, borderColor: c.secondary }]}>
             <TouchableOpacity
-              style={styles.dangerRow}
+              style={styles.actionRow}
               onPress={() => { setError(null); setPendingAction({ type: 'delete' }) }}
             >
-              <Text style={[styles.dangerText, { color: c.error }]}>
+              <Text style={[styles.actionRowText, { color: c.error }]}>
                 {t('household.deleteHousehold')}
               </Text>
             </TouchableOpacity>
@@ -464,29 +464,19 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.label,
   },
 
-  leaveRow: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.md,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  leaveText: {
-    fontSize: 15,
-    fontFamily: theme.fonts.label,
-  },
-
   dangerSection: {
     borderRadius: theme.radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
   },
-  dangerRow: {
+  // Shared by both leave and delete rows — identical layout, colour applied inline
+  actionRow: {
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
     minHeight: 44,
     justifyContent: 'center',
   },
-  dangerText: {
+  actionRowText: {
     fontSize: 15,
     fontFamily: theme.fonts.label,
   },
