@@ -76,7 +76,7 @@ function useAuthGuard() {
     if (!currentHousehold) {
       if (!inHouseholdGroup) router.replace('/(household)/setup')
     } else {
-      if (inAuthGroup || inHouseholdGroup) router.replace('/(app)')
+      if (inAuthGroup || inHouseholdGroup) router.replace('/(app)/(tabs)')
     }
   }, [session, isLoading, isPasswordRecovery, currentHousehold, householdLoading, segments])
 }

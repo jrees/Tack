@@ -661,7 +661,7 @@ export default function ListsIndexScreen() {
   const handleCreate = async (title: string, category: ListCategory) => {
     if (!household || !user) return
     const created = await createList({ household_id: household.id, created_by: user.id, title, category })
-    router.push(`/(app)/lists/${created.id}`)
+    router.push(`/(app)/(tabs)/lists/${created.id}`)
   }
 
   const openAction = (list: List) => {
@@ -728,7 +728,7 @@ export default function ListsIndexScreen() {
             <ListCard
               list={item}
               uncheckedCount={uncheckedCount(item.id)}
-              onPress={() => router.push(`/(app)/lists/${item.id}`)}
+              onPress={() => router.push(`/(app)/(tabs)/lists/${item.id}`)}
               onAction={openAction}
               scheme={scheme}
             />
