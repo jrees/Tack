@@ -122,7 +122,7 @@ const rowStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm + 2,
+    paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
     gap: theme.spacing.md,
     paddingRight: theme.spacing.md,
