@@ -25,6 +25,7 @@ function MemberRow({
   currentUserId,
   isCurrentUserAdmin,
   isLastAdmin,
+  isLast,
   onRemove,
   onTransferAdmin,
 }: {
@@ -32,6 +33,7 @@ function MemberRow({
   currentUserId: string
   isCurrentUserAdmin: boolean
   isLastAdmin: boolean
+  isLast: boolean
   onRemove: (member: MemberWithProfile) => void
   onTransferAdmin: (member: MemberWithProfile) => void
 }) {
@@ -43,9 +45,9 @@ function MemberRow({
   const name = member.profile.display_name ?? '—'
 
   return (
-    <View style={[styles.memberRow, { borderBottomColor: c.border }]}>
+    <View style={[styles.memberRow, isLast ? { borderBottomWidth: 0 } : { borderBottomColor: c.border }]}>
       <View style={styles.memberInfo}>
-        <Text style={[styles.memberName, { color: c.text }]}>{name}{isSelf ? ' (you)' : ''}</Text>
+        <Text style={[styles.memberName, { color: c.text }]}>{name}{isSelf ? ` ${t('household.you')}` : ''}</Text>
         <View style={[
           styles.roleBadge,
           { backgroundColor: member.role === 'admin' ? c.primaryLight : c.border },
@@ -102,11 +104,13 @@ function ConfirmSheet({
   onConfirm,
   onCancel,
   isLoading,
+  error,
 }: {
   action: ConfirmAction
   onConfirm: () => void
   onCancel: () => void
   isLoading: boolean
+  error: string | null
 }) {
   const { t } = useTranslation()
   const scheme: ColorScheme = useColorScheme() === 'dark' ? 'dark' : 'light'
@@ -133,8 +137,11 @@ function ConfirmSheet({
   })()
 
   return (
-    <View style={[styles.confirmSheet, { backgroundColor: c.surface, borderColor: c.border }]}>
+    <View style={styles.confirmSheet}>
       <Text style={[styles.confirmMessage, { color: c.text }]}>{message}</Text>
+      {error && (
+        <Text style={[styles.confirmError, { color: c.error }]}>{error}</Text>
+      )}
       <View style={styles.confirmButtons}>
         <TouchableOpacity
           style={[styles.confirmBtn, { borderColor: c.border }]}
@@ -266,8 +273,11 @@ export default function HouseholdScreen() {
             <Text style={[styles.inviteCode, { color: c.text }]}>
               {currentHousehold.invite_code}
             </Text>
-            <TouchableOpacity onPress={handleCopyCode} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={[styles.copyLink, { color: c.primary }]}>
+            <TouchableOpacity
+              style={[styles.copyChip, { backgroundColor: c.primaryLight }]}
+              onPress={handleCopyCode}
+            >
+              <Text style={[styles.copyChipText, { color: c.primary }]}>
                 {codeCopied ? t('household.codeCopied') : t('household.copyCode')}
               </Text>
             </TouchableOpacity>
@@ -282,36 +292,22 @@ export default function HouseholdScreen() {
           <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>
             {t('household.members')}
           </Text>
-          {members.map(member => (
+          {members.map((member, index) => (
             <MemberRow
               key={member.id}
               member={member}
               currentUserId={userId}
               isCurrentUserAdmin={isAdmin}
               isLastAdmin={isLastAdmin}
+              isLast={index === members.length - 1}
               onRemove={m => { setError(null); setPendingAction({ type: 'remove', member: m }) }}
               onTransferAdmin={m => { setError(null); setPendingAction({ type: 'transferAdmin', member: m }) }}
             />
           ))}
         </View>
 
-        {/* Error */}
-        {error && (
-          <Text style={[styles.errorText, { color: c.error }]}>{error}</Text>
-        )}
-
-        {/* Confirm sheet */}
-        {pendingAction && (
-          <ConfirmSheet
-            action={pendingAction}
-            onConfirm={handleConfirm}
-            onCancel={() => { setPendingAction(null); setError(null) }}
-            isLoading={actionLoading}
-          />
-        )}
-
         {/* Danger zone */}
-        <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <View style={[styles.dangerSection, { backgroundColor: c.secondaryLight, borderColor: c.secondary }]}>
           <TouchableOpacity style={styles.dangerRow} onPress={handleLeavePress}>
             <Text style={[styles.dangerText, { color: c.error }]}>
               {t('household.leaveHousehold')}
@@ -319,7 +315,7 @@ export default function HouseholdScreen() {
           </TouchableOpacity>
           {isAdmin && (
             <TouchableOpacity
-              style={[styles.dangerRow, { borderTopWidth: 1, borderTopColor: c.border }]}
+              style={[styles.dangerRow, { borderTopWidth: 1, borderTopColor: c.secondary }]}
               onPress={() => { setError(null); setPendingAction({ type: 'delete' }) }}
             >
               <Text style={[styles.dangerText, { color: c.error }]}>
@@ -327,8 +323,25 @@ export default function HouseholdScreen() {
               </Text>
             </TouchableOpacity>
           )}
+          {/* Last-admin error lives here, contextually below the leave action */}
+          {!pendingAction && error && (
+            <Text style={[styles.dangerError, { color: c.error, borderTopColor: c.secondary }]}>{error}</Text>
+          )}
         </View>
       </ScrollView>
+
+      {/* Confirm sheet — fixed bottom panel, always visible regardless of scroll */}
+      {pendingAction && (
+        <View style={[styles.confirmOverlay, { backgroundColor: c.surface, borderTopColor: c.border }]}>
+          <ConfirmSheet
+            action={pendingAction}
+            onConfirm={handleConfirm}
+            onCancel={() => { setPendingAction(null); setError(null) }}
+            isLoading={actionLoading}
+            error={error}
+          />
+        </View>
+      )}
     </SafeAreaView>
   )
 }
@@ -392,8 +405,15 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.heading,
     letterSpacing: 3,
   },
-  copyLink: {
-    fontSize: 14,
+  copyChip: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  copyChipText: {
+    fontSize: 13,
     fontFamily: theme.fonts.label,
   },
   inviteHint: {
@@ -407,7 +427,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm + 2,
+    paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
     minHeight: 44,
   },
@@ -445,6 +465,11 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.label,
   },
 
+  dangerSection: {
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
   dangerRow: {
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
@@ -455,23 +480,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: theme.fonts.label,
   },
-
-  errorText: {
-    fontSize: 14,
+  dangerError: {
+    fontSize: 13,
     fontFamily: theme.fonts.body,
-    paddingHorizontal: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderTopWidth: 1,
   },
 
+  confirmOverlay: {
+    borderTopWidth: 1,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+  },
   confirmSheet: {
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    padding: theme.spacing.md,
     gap: theme.spacing.md,
   },
   confirmMessage: {
     fontSize: 15,
     fontFamily: theme.fonts.body,
     lineHeight: 22,
+  },
+  confirmError: {
+    fontSize: 13,
+    fontFamily: theme.fonts.body,
   },
   confirmButtons: {
     flexDirection: 'row',
