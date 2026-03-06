@@ -11,6 +11,7 @@ import { Slot, useRouter, useSegments } from 'expo-router'
 import { useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useHouseholdStore } from '@/stores/householdStore'
+import { useListStore } from '@/stores/listStore'
 
 // Keep the splash screen visible until we explicitly call hideAsync().
 SplashScreen.preventAutoHideAsync()
@@ -33,6 +34,7 @@ function useAuthGuard() {
   const router = useRouter()
   const { session, isLoading, isPasswordRecovery } = useAuthStore()
   const { currentHousehold, isLoading: householdLoading, fetchHousehold, reset: resetHousehold } = useHouseholdStore()
+  const resetLists = useListStore(s => s.reset)
 
   // Fetch household whenever the authenticated user changes.
   useEffect(() => {
@@ -40,6 +42,7 @@ function useAuthGuard() {
       fetchHousehold(session.user.id)
     } else {
       resetHousehold()
+      resetLists()
     }
   }, [session?.user?.id])
 
