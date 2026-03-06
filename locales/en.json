@@ -148,7 +148,7 @@
   "lists": {
     "title": "Lists",
     "add": "New list",
-    "empty": "No lists yet",
+    "empty": "Nothing here yet — tap + to create your first list",
     "itemEmpty": "Nothing on this list yet",
     "addItem": "Add item",
     "listTitle": "List name",
@@ -164,6 +164,12 @@
     "unarchive": "Unarchive list",
     "pin": "Pin to top",
     "unpin": "Unpin",
+    "rename": "Rename list",
+    "deleteConfirmBody": "This'll remove all items in the list. This can't be undone.",
+    "clearChecked": "Clear checked items",
+    "category": "Category",
+    "emptyTitle": "Nothing here yet",
+    "emptyBody": "Add your first item below",
     "count_one": "{{count}} item",
     "count_other": "{{count}} items",
     "errors": {

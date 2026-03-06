@@ -11,18 +11,28 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  Animated,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
+import { Ionicons } from '@expo/vector-icons'
+import { Swipeable } from 'react-native-gesture-handler'
 import { theme, type ColorScheme } from '@/lib/theme'
 import { useListStore } from '@/stores/listStore'
 import { useAuthStore } from '@/stores/authStore'
 import { filterSuggestions } from '@/lib/suggestions'
 import type { ListItem, List } from '@/types/database'
 
+const CATEGORY_ICONS: Record<string, string> = {
+  shopping: '🛒',
+  gifts: '🎁',
+  packing: '🧳',
+  general: '📋',
+}
+
 // ---------------------------------------------------------------------------
-// Item row
+// Swipeable item row
 // ---------------------------------------------------------------------------
 
 function ItemRow({
@@ -37,46 +47,74 @@ function ItemRow({
   scheme: ColorScheme
 }) {
   const c = theme.colors[scheme]
-  return (
-    <View style={[rowStyles.row, { borderBottomColor: c.border }]}>
+  const swipeRef = useRef<Swipeable>(null)
+
+  const renderRightActions = (
+    _progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>,
+  ) => {
+    const scale = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [1, 0.5],
+      extrapolate: 'clamp',
+    })
+    return (
       <TouchableOpacity
-        style={rowStyles.checkArea}
-        onPress={onToggle}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        style={[rowStyles.deleteAction, { backgroundColor: c.error }]}
+        onPress={() => {
+          swipeRef.current?.close()
+          onDelete()
+        }}
       >
-        <View
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <Ionicons name="trash-outline" size={20} color="#fff" />
+        </Animated.View>
+      </TouchableOpacity>
+    )
+  }
+
+  return (
+    <Swipeable
+      ref={swipeRef}
+      renderRightActions={renderRightActions}
+      rightThreshold={40}
+      overshootRight={false}
+    >
+      <View style={[rowStyles.row, { backgroundColor: c.background, borderBottomColor: c.border }]}>
+        <TouchableOpacity
+          style={rowStyles.checkArea}
+          onPress={onToggle}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <View
+            style={[
+              rowStyles.checkbox,
+              {
+                borderColor: item.is_checked ? c.success : c.border,
+                backgroundColor: item.is_checked ? c.success : 'transparent',
+              },
+            ]}
+          >
+            {item.is_checked && (
+              <Ionicons name="checkmark" size={14} color="#fff" />
+            )}
+          </View>
+        </TouchableOpacity>
+        <Text
           style={[
-            rowStyles.checkbox,
+            rowStyles.label,
             {
-              borderColor: item.is_checked ? c.success : c.border,
-              backgroundColor: item.is_checked ? c.success : 'transparent',
+              color: item.is_checked ? c.textMuted : c.text,
+              fontFamily: theme.fonts.body,
+              textDecorationLine: item.is_checked ? 'line-through' : 'none',
             },
           ]}
+          numberOfLines={2}
         >
-          {item.is_checked && <Text style={rowStyles.checkmark}>✓</Text>}
-        </View>
-      </TouchableOpacity>
-      <Text
-        style={[
-          rowStyles.label,
-          {
-            color: item.is_checked ? c.textMuted : c.text,
-            fontFamily: theme.fonts.body,
-            textDecorationLine: item.is_checked ? 'line-through' : 'none',
-          },
-        ]}
-        numberOfLines={2}
-      >
-        {item.title}
-      </Text>
-      <TouchableOpacity
-        style={rowStyles.deleteBtn}
-        onPress={onDelete}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Text style={[rowStyles.deleteIcon, { color: c.textMuted }]}>×</Text>
-      </TouchableOpacity>
-    </View>
+          {item.title}
+        </Text>
+      </View>
+    </Swipeable>
   )
 }
 
@@ -87,6 +125,7 @@ const rowStyles = StyleSheet.create({
     paddingVertical: theme.spacing.sm + 2,
     borderBottomWidth: 1,
     gap: theme.spacing.md,
+    paddingRight: theme.spacing.md,
   },
   checkArea: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   checkbox: {
@@ -97,10 +136,13 @@ const rowStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkmark: { color: '#fff', fontSize: 13, fontWeight: '700' },
   label: { flex: 1, fontSize: 16, lineHeight: 22 },
-  deleteBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  deleteIcon: { fontSize: 22 },
+  deleteAction: {
+    width: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 1, // aligns with borderBottomWidth gap
+  },
 })
 
 // ---------------------------------------------------------------------------
@@ -139,7 +181,12 @@ function SuggestionChips({
 }
 
 const chipStyles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: theme.spacing.sm, paddingHorizontal: theme.spacing.lg, paddingVertical: theme.spacing.xs },
+  row: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.xs,
+  },
   chip: {
     borderWidth: 1,
     borderRadius: theme.radius.full,
@@ -147,6 +194,43 @@ const chipStyles = StyleSheet.create({
     paddingVertical: theme.spacing.xs,
   },
   label: { fontSize: 13 },
+})
+
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
+
+function EmptyState({ list, scheme }: { list: List | undefined; scheme: ColorScheme }) {
+  const c = theme.colors[scheme]
+  const { t } = useTranslation()
+  const icon = list ? CATEGORY_ICONS[list.category] ?? '📋' : '📋'
+  return (
+    <View style={emptyStyles.container}>
+      <Text style={emptyStyles.icon}>{icon}</Text>
+      <Text style={[emptyStyles.title, { color: c.text, fontFamily: theme.fonts.heading }]}>
+        {t('lists.emptyTitle')}
+      </Text>
+      <Text style={[emptyStyles.body, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>
+        {t('lists.emptyBody')}
+      </Text>
+      {/* Arrow pointing down toward the add bar */}
+      <View style={emptyStyles.arrowWrap}>
+        <Ionicons name="arrow-down" size={20} color={c.textMuted} />
+      </View>
+    </View>
+  )
+}
+
+const emptyStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    paddingTop: theme.spacing.xl * 2,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  icon: { fontSize: 52, marginBottom: theme.spacing.md },
+  title: { fontSize: 20, marginBottom: theme.spacing.xs },
+  body: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  arrowWrap: { marginTop: theme.spacing.lg },
 })
 
 // ---------------------------------------------------------------------------
@@ -186,12 +270,11 @@ export default function ListDetailScreen() {
   const inputRef = useRef<TextInput>(null)
   const titleRef = useRef<TextInput>(null)
 
-  // Sync titleDraft when list changes from realtime
+  // Sync titleDraft when list changes (realtime or navigation)
   useEffect(() => {
     if (list && !isEditingTitle) setTitleDraft(list.title)
   }, [list?.title])
 
-  // Fetch items and subscribe on mount
   useEffect(() => {
     if (!id) return
     fetchItems(id)
@@ -248,20 +331,29 @@ export default function ListDetailScreen() {
     await renameList(id, trimmed)
   }
 
+  type RowData = ListItem | { __separator: true }
+
+  const listData: RowData[] = [
+    ...unchecked,
+    ...(checked.length > 0 ? [{ __separator: true } as const] : []),
+    ...checked,
+  ]
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={20} color={c.primary} />
             <Text style={[styles.backText, { color: c.primary, fontFamily: theme.fonts.label }]}>
-              ← {t('common.back')}
+              {t('lists.title')}
             </Text>
           </TouchableOpacity>
+
           {isEditingTitle ? (
             <TextInput
               ref={titleRef}
@@ -274,7 +366,12 @@ export default function ListDetailScreen() {
               returnKeyType="done"
             />
           ) : (
-            <TouchableOpacity onPress={() => { setIsEditingTitle(true); setTimeout(() => titleRef.current?.focus(), 50) }}>
+            <TouchableOpacity
+              onPress={() => {
+                setIsEditingTitle(true)
+                setTimeout(() => titleRef.current?.focus(), 50)
+              }}
+            >
               <Text style={[styles.title, { color: c.text, fontFamily: theme.fonts.heading }]} numberOfLines={1}>
                 {list?.title ?? ''}
               </Text>
@@ -282,9 +379,9 @@ export default function ListDetailScreen() {
           )}
         </View>
 
-        {/* Items list */}
+        {/* Items */}
         <FlatList
-          data={[...unchecked, ...(checked.length > 0 ? [{ __separator: true } as const] : []), ...checked]}
+          data={listData}
           keyExtractor={(item, idx) =>
             '__separator' in item ? 'separator' : (item as ListItem).id
           }
@@ -312,21 +409,19 @@ export default function ListDetailScreen() {
               />
             )
           }}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={[styles.emptyText, { color: c.textMuted, fontFamily: theme.fonts.body }]}>
-                {t('lists.itemEmpty')}
-              </Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState list={list} scheme={scheme} />}
         />
 
         {/* Suggestion chips */}
         {suggestions.length > 0 && (
-          <SuggestionChips suggestions={suggestions} onSelect={handleSuggestionSelect} scheme={scheme} />
+          <SuggestionChips
+            suggestions={suggestions}
+            onSelect={handleSuggestionSelect}
+            scheme={scheme}
+          />
         )}
 
-        {/* Add item input */}
+        {/* Add bar */}
         <View style={[styles.addBar, { backgroundColor: c.surface, borderTopColor: c.border }]}>
           <TextInput
             ref={inputRef}
@@ -340,16 +435,21 @@ export default function ListDetailScreen() {
             blurOnSubmit={false}
           />
           <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: c.primary }, !inputText.trim() && styles.addButtonDisabled]}
+            style={[
+              styles.addButton,
+              { backgroundColor: c.primary },
+              !inputText.trim() && styles.addButtonDisabled,
+            ]}
             onPress={() => handleAdd()}
             disabled={isAdding}
           >
             {isAdding
               ? <ActivityIndicator color={c.surface} size="small" />
-              : <Text style={[styles.addButtonText, { color: c.surface }]}>+</Text>
+              : <Ionicons name="add" size={24} color={c.surface} />
             }
           </TouchableOpacity>
         </View>
+
         {!!addError && (
           <Text style={[styles.addError, { color: c.error, fontFamily: theme.fonts.body }]}>
             {addError}
@@ -367,7 +467,14 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.sm,
     paddingBottom: theme.spacing.md,
   },
-  backBtn: { paddingVertical: theme.spacing.xs, marginBottom: theme.spacing.xs },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xs,
+    marginBottom: theme.spacing.xs,
+    gap: theme.spacing.xs,
+    alignSelf: 'flex-start',
+  },
   backText: { fontSize: 15 },
   title: {
     fontSize: 26,
@@ -390,11 +497,6 @@ const styles = StyleSheet.create({
   },
   separatorLine: { flex: 1, height: 1 },
   separatorLabel: { fontSize: 13 },
-  empty: {
-    paddingTop: theme.spacing.xl * 2,
-    alignItems: 'center',
-  },
-  emptyText: { fontSize: 15 },
   addBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -416,7 +518,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addButtonDisabled: { opacity: 0.4 },
-  addButtonText: { fontSize: 24, lineHeight: 28 },
   addError: {
     fontSize: 13,
     paddingHorizontal: theme.spacing.lg,

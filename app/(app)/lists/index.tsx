@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
+import { Ionicons } from '@expo/vector-icons'
 import { theme, type ColorScheme } from '@/lib/theme'
 import { useListStore } from '@/stores/listStore'
 import { useHouseholdStore } from '@/stores/householdStore'
@@ -35,10 +36,9 @@ const CATEGORY_ICONS: Record<ListCategory, string> = {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// Category pill
 // ---------------------------------------------------------------------------
 
-/** A tappable category pill used in the create modal. */
 function CategoryPill({
   category,
   selected,
@@ -112,35 +112,52 @@ function ListCard({
   const { t } = useTranslation()
   return (
     <TouchableOpacity
-      style={[cardStyles.card, { backgroundColor: c.surface, borderColor: c.border }]}
+      style={[
+        cardStyles.card,
+        {
+          backgroundColor: c.surface,
+          borderColor: c.border,
+          // Pinned lists get a subtle left accent border
+          borderLeftColor: list.is_pinned ? c.primary : c.border,
+          borderLeftWidth: list.is_pinned ? 3 : 1,
+        },
+      ]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={cardStyles.left}>
+      {/* Category icon with tinted background */}
+      <View style={[cardStyles.iconWrap, { backgroundColor: c.primaryLight }]}>
         <Text style={cardStyles.icon}>{CATEGORY_ICONS[list.category]}</Text>
-        <View style={cardStyles.meta}>
-          <View style={cardStyles.titleRow}>
-            {list.is_pinned && (
-              <Text style={[cardStyles.pin, { color: c.primary }]}>📌 </Text>
-            )}
-            <Text
-              style={[cardStyles.title, { color: c.text, fontFamily: theme.fonts.label }]}
-              numberOfLines={1}
-            >
-              {list.title}
-            </Text>
-          </View>
-          <Text style={[cardStyles.count, { color: c.textMuted, fontFamily: theme.fonts.body }]}>
-            {t('lists.count', { count: uncheckedCount })}
+      </View>
+
+      <View style={cardStyles.meta}>
+        <View style={cardStyles.titleRow}>
+          {list.is_pinned && (
+            <Ionicons
+              name="pin"
+              size={12}
+              color={c.primary}
+              style={cardStyles.pinIcon}
+            />
+          )}
+          <Text
+            style={[cardStyles.title, { color: c.text, fontFamily: theme.fonts.label }]}
+            numberOfLines={1}
+          >
+            {list.title}
           </Text>
         </View>
+        <Text style={[cardStyles.count, { color: c.textMuted, fontFamily: theme.fonts.body }]}>
+          {t('lists.count', { count: uncheckedCount })}
+        </Text>
       </View>
+
       <TouchableOpacity
         style={cardStyles.moreBtn}
         onPress={() => onAction(list)}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={[cardStyles.more, { color: c.textMuted }]}>⋯</Text>
+        <Ionicons name="ellipsis-horizontal" size={20} color={c.textMuted} />
       </TouchableOpacity>
     </TouchableOpacity>
   )
@@ -150,28 +167,41 @@ const cardStyles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     borderRadius: theme.radius.lg,
     borderWidth: 1,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
+    gap: theme.spacing.md,
   },
-  left: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: theme.spacing.md },
-  icon: { fontSize: 24 },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  icon: { fontSize: 22 },
   meta: { flex: 1 },
-  titleRow: { flexDirection: 'row', alignItems: 'center' },
-  pin: { fontSize: 13 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs },
+  pinIcon: { marginTop: 1 },
   title: { fontSize: 16, flex: 1 },
   count: { fontSize: 13, marginTop: 2 },
   moreBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  more: { fontSize: 20 },
 })
 
 // ---------------------------------------------------------------------------
-// Action sheet (bottom sheet simulation with Modal)
+// Action sheet
 // ---------------------------------------------------------------------------
 
-type ActionSheetProps = {
+function ActionSheet({
+  visible,
+  list,
+  onClose,
+  onRename,
+  onPin,
+  onDelete,
+  scheme,
+}: {
   visible: boolean
   list: List | null
   onClose: () => void
@@ -179,12 +209,13 @@ type ActionSheetProps = {
   onPin: () => void
   onDelete: () => void
   scheme: ColorScheme
-}
-
-function ActionSheet({ visible, list, onClose, onRename, onPin, onDelete, scheme }: ActionSheetProps) {
+}) {
   const c = theme.colors[scheme]
   const { t } = useTranslation()
   if (!list) return null
+
+  const isPinned = list.is_pinned
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={sheetStyles.overlay} activeOpacity={1} onPress={onClose} />
@@ -193,20 +224,38 @@ function ActionSheet({ visible, list, onClose, onRename, onPin, onDelete, scheme
         <Text style={[sheetStyles.sheetTitle, { color: c.text, fontFamily: theme.fonts.heading }]} numberOfLines={1}>
           {list.title}
         </Text>
+
         <TouchableOpacity style={sheetStyles.row} onPress={onRename}>
-          <Text style={[sheetStyles.rowText, { color: c.text, fontFamily: theme.fonts.label }]}>✏️  {t('common.edit')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={sheetStyles.row} onPress={onPin}>
+          <Ionicons name="pencil-outline" size={18} color={c.text} />
           <Text style={[sheetStyles.rowText, { color: c.text, fontFamily: theme.fonts.label }]}>
-            {list.is_pinned ? `📌  ${t('lists.unpin')}` : `📌  ${t('lists.pin')}`}
+            {t('lists.rename')}
           </Text>
         </TouchableOpacity>
-        <View style={[sheetStyles.divider, { backgroundColor: c.border }]} />
-        <TouchableOpacity style={sheetStyles.row} onPress={onDelete}>
-          <Text style={[sheetStyles.rowText, { color: c.error, fontFamily: theme.fonts.label }]}>🗑  {t('common.delete')}</Text>
+
+        <TouchableOpacity style={sheetStyles.row} onPress={onPin}>
+          <Ionicons
+            name={isPinned ? 'pin-outline' : 'pin'}
+            size={18}
+            color={isPinned ? c.textSecondary : c.primary}
+          />
+          <Text style={[sheetStyles.rowText, { color: isPinned ? c.text : c.primary, fontFamily: theme.fonts.label }]}>
+            {t(isPinned ? 'lists.unpin' : 'lists.pin')}
+          </Text>
         </TouchableOpacity>
+
+        <View style={[sheetStyles.divider, { backgroundColor: c.border }]} />
+
+        <TouchableOpacity style={sheetStyles.row} onPress={onDelete}>
+          <Ionicons name="trash-outline" size={18} color={c.error} />
+          <Text style={[sheetStyles.rowText, { color: c.error, fontFamily: theme.fonts.label }]}>
+            {t('common.delete')}
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={[sheetStyles.row, sheetStyles.cancelRow]} onPress={onClose}>
-          <Text style={[sheetStyles.rowText, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>{t('common.cancel')}</Text>
+          <Text style={[sheetStyles.cancelText, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
+            {t('common.cancel')}
+          </Text>
         </TouchableOpacity>
       </View>
     </Modal>
@@ -233,17 +282,22 @@ const sheetStyles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
     paddingVertical: theme.spacing.md,
   },
   cancelRow: {
     marginTop: theme.spacing.xs,
+    justifyContent: 'center',
   },
   rowText: { fontSize: 16 },
+  cancelText: { fontSize: 16 },
   divider: { height: 1, marginVertical: theme.spacing.xs },
 })
 
 // ---------------------------------------------------------------------------
-// Delete confirmation sheet
+// Delete confirmation
 // ---------------------------------------------------------------------------
 
 function DeleteConfirmSheet({
@@ -270,7 +324,7 @@ function DeleteConfirmSheet({
             {t('common.delete')} "{list.title}"?
           </Text>
           <Text style={[confirmStyles.body, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>
-            This will remove all items in the list. This can't be undone.
+            {t('lists.deleteConfirmBody')}
           </Text>
           <View style={confirmStyles.actions}>
             <TouchableOpacity style={confirmStyles.btn} onPress={onClose}>
@@ -354,7 +408,7 @@ function RenameModal({
           <TouchableOpacity activeOpacity={1}>
             <View style={[renameStyles.dialog, { backgroundColor: c.surface }]}>
               <Text style={[renameStyles.title, { color: c.text, fontFamily: theme.fonts.heading }]}>
-                {t('common.edit')}
+                {t('lists.rename')}
               </Text>
               <TextInput
                 ref={inputRef}
@@ -420,7 +474,8 @@ function CreateListModal({
   const c = theme.colors[scheme]
   const { t } = useTranslation()
   const [title, setTitle] = useState('')
-  const [category, setCategory] = useState<ListCategory>('general')
+  // Default to shopping — the most common use case
+  const [category, setCategory] = useState<ListCategory>('shopping')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const inputRef = useRef<TextInput>(null)
@@ -428,7 +483,7 @@ function CreateListModal({
   useEffect(() => {
     if (visible) {
       setTitle('')
-      setCategory('general')
+      setCategory('shopping')
       setError('')
       setTimeout(() => inputRef.current?.focus(), 100)
     }
@@ -462,7 +517,6 @@ function CreateListModal({
             {t('lists.add')}
           </Text>
 
-          {/* Title */}
           <Text style={[createStyles.label, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
             {t('lists.listTitle')}
           </Text>
@@ -491,9 +545,8 @@ function CreateListModal({
             </Text>
           )}
 
-          {/* Category */}
           <Text style={[createStyles.label, { color: c.textSecondary, fontFamily: theme.fonts.label, marginTop: theme.spacing.md }]}>
-            {t('tasks.category')}
+            {t('lists.category')}
           </Text>
           <View style={createStyles.pills}>
             {CATEGORIES.map(cat => (
@@ -507,7 +560,6 @@ function CreateListModal({
             ))}
           </View>
 
-          {/* Actions */}
           <View style={createStyles.actions}>
             <TouchableOpacity style={createStyles.cancelBtn} onPress={onClose}>
               <Text style={[createStyles.cancelText, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
@@ -589,7 +641,6 @@ export default function ListsIndexScreen() {
   const [showRename, setShowRename] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
 
-  // Fetch lists and subscribe on mount
   useEffect(() => {
     if (!household) return
     fetchLists(household.id)
@@ -597,7 +648,6 @@ export default function ListsIndexScreen() {
     return unsub
   }, [household?.id])
 
-  // Pre-fetch item counts for all lists (so unchecked count shows on cards)
   useEffect(() => {
     for (const list of lists) {
       if (!items[list.id]) fetchItems(list.id)
@@ -652,7 +702,6 @@ export default function ListsIndexScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: c.text, fontFamily: theme.fonts.heading }]}>
           {t('lists.title')}
@@ -662,11 +711,10 @@ export default function ListsIndexScreen() {
           onPress={() => setShowCreate(true)}
           accessibilityLabel={t('lists.add')}
         >
-          <Text style={[styles.addBtnText, { color: c.surface }]}>+</Text>
+          <Ionicons name="add" size={24} color={c.surface} />
         </TouchableOpacity>
       </View>
 
-      {/* List */}
       {isLoading && lists.length === 0 ? (
         <View style={styles.center}>
           <ActivityIndicator color={c.primary} />
@@ -687,16 +735,15 @@ export default function ListsIndexScreen() {
           )}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={[styles.emptyIcon]}>📋</Text>
+              <Text style={styles.emptyIcon}>📋</Text>
               <Text style={[styles.emptyText, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>
-                {t('lists.empty')} — {t('lists.add').toLowerCase()} one below
+                {t('lists.empty')}
               </Text>
             </View>
           }
         />
       )}
 
-      {/* Modals */}
       <CreateListModal
         visible={showCreate}
         onClose={() => setShowCreate(false)}
@@ -748,10 +795,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addBtnText: { fontSize: 24, lineHeight: 28 },
   list: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.xl },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  empty: { flex: 1, alignItems: 'center', paddingTop: theme.spacing.xl * 2 },
+  empty: { flex: 1, alignItems: 'center', paddingTop: theme.spacing.xl * 2, paddingHorizontal: theme.spacing.lg },
   emptyIcon: { fontSize: 48, marginBottom: theme.spacing.md },
-  emptyText: { fontSize: 15, textAlign: 'center' },
+  emptyText: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
 })
