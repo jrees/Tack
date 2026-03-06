@@ -118,6 +118,12 @@ export default function RootLayout() {
         await useAuthStore.getState().handlePasswordRecoveryUrl(url)
       } else if (url.includes('type=signup')) {
         await useAuthStore.getState().handleEmailConfirmationUrl(url)
+      } else {
+        const parsed = Linking.parse(url)
+        const code = parsed.queryParams?.code
+        if (parsed.path === 'join' && typeof code === 'string' && code) {
+          useHouseholdStore.getState().setPendingInviteCode(code.toUpperCase())
+        }
       }
     }
 

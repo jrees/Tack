@@ -8,7 +8,7 @@ import {
   View,
   useColorScheme,
 } from 'react-native'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { theme, type ColorScheme } from '@/lib/theme'
@@ -25,17 +25,23 @@ export default function HouseholdSetupScreen() {
   const c = theme.colors[scheme]
 
   const userId = useAuthStore(s => s.user?.id)
-  const { createHousehold, joinHousehold, isLoading } = useHouseholdStore()
+  const { createHousehold, joinHousehold, isLoading, pendingInviteCode, setPendingInviteCode } = useHouseholdStore()
 
   const [mode, setMode] = useState<Mode>('create')
-
   const [householdName, setHouseholdName] = useState('')
   const [nameError, setNameError] = useState('')
-
   const [inviteCode, setInviteCode] = useState('')
   const [codeError, setCodeError] = useState('')
-
   const [formError, setFormError] = useState('')
+
+  // If a deep link delivered a code before we got here, pre-fill it.
+  useEffect(() => {
+    if (pendingInviteCode) {
+      setMode('join')
+      setInviteCode(pendingInviteCode)
+      setPendingInviteCode(null)
+    }
+  }, [pendingInviteCode])
 
   const clearErrors = () => {
     setNameError('')

@@ -14,6 +14,7 @@ type HouseholdState = {
   currentHousehold: Household | null
   members: MemberWithProfile[]
   isLoading: boolean
+  pendingInviteCode: string | null
 }
 
 type HouseholdActions = {
@@ -25,6 +26,7 @@ type HouseholdActions = {
   removeMember: (memberUserId: string) => Promise<void>
   transferAdmin: (toUserId: string) => Promise<void>
   deleteHousehold: () => Promise<void>
+  setPendingInviteCode: (code: string | null) => void
   reset: () => void
 }
 
@@ -52,6 +54,7 @@ export const useHouseholdStore = create<HouseholdStore>((set, get) => ({
   currentHousehold: null,
   members: [],
   isLoading: true,
+  pendingInviteCode: null,
 
   // ---- actions ----
 
@@ -291,6 +294,8 @@ export const useHouseholdStore = create<HouseholdStore>((set, get) => ({
 
     get().reset()
   },
+
+  setPendingInviteCode: (code) => set({ pendingInviteCode: code }),
 
   /**
    * Clear household state on sign-out.

@@ -9,6 +9,7 @@ import {
   Share,
   useColorScheme,
 } from 'react-native'
+import * as Clipboard from 'expo-clipboard'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
@@ -184,6 +185,7 @@ export default function HouseholdScreen() {
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [codeCopied, setCodeCopied] = useState(false)
+  const [linkShared, setLinkShared] = useState(false)
 
   if (!currentHousehold || !user) return null
 
@@ -193,11 +195,23 @@ export default function HouseholdScreen() {
   const adminCount = members.filter(m => m.role === 'admin').length
   const isLastAdmin = isAdmin && adminCount === 1
 
-  // ---- invite code copy ----
+  const inviteLink = `tack://join?code=${currentHousehold.invite_code}`
+
+  // ---- copy raw code to clipboard ----
   async function handleCopyCode() {
-    await Share.share({ message: currentHousehold!.invite_code })
+    await Clipboard.setStringAsync(currentHousehold!.invite_code)
     setCodeCopied(true)
     setTimeout(() => setCodeCopied(false), 2000)
+  }
+
+  // ---- share deep link via system share sheet ----
+  async function handleShareLink() {
+    await Share.share({
+      message: t('household.shareMessage', { link: inviteLink }),
+      url: inviteLink,
+    })
+    setLinkShared(true)
+    setTimeout(() => setLinkShared(false), 2000)
   }
 
   // ---- leave ----
@@ -270,14 +284,24 @@ export default function HouseholdScreen() {
             <Text style={[styles.inviteCode, { color: c.text }]}>
               {currentHousehold.invite_code}
             </Text>
-            <TouchableOpacity
-              style={[styles.copyChip, { backgroundColor: c.primaryLight }]}
-              onPress={handleCopyCode}
-            >
-              <Text style={[styles.copyChipText, { color: c.primary }]}>
-                {codeCopied ? t('household.codeCopied') : t('household.copyCode')}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.codeActions}>
+              <TouchableOpacity
+                style={[styles.copyChip, { backgroundColor: c.primaryLight }]}
+                onPress={handleCopyCode}
+              >
+                <Text style={[styles.copyChipText, { color: c.primary }]}>
+                  {codeCopied ? t('household.codeCopied') : t('household.copyCode')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.copyChip, { backgroundColor: c.primaryLight }]}
+                onPress={handleShareLink}
+              >
+                <Text style={[styles.copyChipText, { color: c.primary }]}>
+                  {linkShared ? t('household.linkShared') : t('household.shareLink')}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <Text style={[styles.inviteHint, { color: c.textMuted }]}>
             {t('household.invitePrompt')}
@@ -398,6 +422,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.md,
     paddingBottom: theme.spacing.sm,
+  },
+  codeActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.xs,
   },
   inviteCode: {
     fontSize: 22,
