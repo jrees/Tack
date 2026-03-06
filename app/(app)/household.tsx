@@ -24,7 +24,6 @@ function MemberRow({
   member,
   currentUserId,
   isCurrentUserAdmin,
-  isLastAdmin,
   isLast,
   onRemove,
   onTransferAdmin,
@@ -32,7 +31,6 @@ function MemberRow({
   member: MemberWithProfile
   currentUserId: string
   isCurrentUserAdmin: boolean
-  isLastAdmin: boolean
   isLast: boolean
   onRemove: (member: MemberWithProfile) => void
   onTransferAdmin: (member: MemberWithProfile) => void
@@ -209,8 +207,7 @@ export default function HouseholdScreen() {
       return
     }
     if (isLastAdmin && members.length === 1) {
-      // Only member — surface delete option instead
-      setPendingAction({ type: 'delete' })
+      setError(t('household.leaveLastAdminAlone'))
       return
     }
     setPendingAction({ type: 'leave' })
@@ -298,7 +295,6 @@ export default function HouseholdScreen() {
               member={member}
               currentUserId={userId}
               isCurrentUserAdmin={isAdmin}
-              isLastAdmin={isLastAdmin}
               isLast={index === members.length - 1}
               onRemove={m => { setError(null); setPendingAction({ type: 'remove', member: m }) }}
               onTransferAdmin={m => { setError(null); setPendingAction({ type: 'transferAdmin', member: m }) }}
@@ -306,28 +302,31 @@ export default function HouseholdScreen() {
           ))}
         </View>
 
-        {/* Danger zone */}
-        <View style={[styles.dangerSection, { backgroundColor: c.secondaryLight, borderColor: c.secondary }]}>
-          <TouchableOpacity style={styles.dangerRow} onPress={handleLeavePress}>
-            <Text style={[styles.dangerText, { color: c.error }]}>
+        {/* Leave — neutral tone for regular members, always available */}
+        <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <TouchableOpacity style={styles.leaveRow} onPress={handleLeavePress}>
+            <Text style={[styles.leaveText, { color: c.error }]}>
               {t('household.leaveHousehold')}
             </Text>
           </TouchableOpacity>
-          {isAdmin && (
+          {!pendingAction && error && (
+            <Text style={[styles.dangerError, { color: c.error, borderTopColor: c.border }]}>{error}</Text>
+          )}
+        </View>
+
+        {/* Delete household — destructive, admin only */}
+        {isAdmin && (
+          <View style={[styles.dangerSection, { backgroundColor: c.secondaryLight, borderColor: c.secondary }]}>
             <TouchableOpacity
-              style={[styles.dangerRow, { borderTopWidth: 1, borderTopColor: c.secondary }]}
+              style={styles.dangerRow}
               onPress={() => { setError(null); setPendingAction({ type: 'delete' }) }}
             >
               <Text style={[styles.dangerText, { color: c.error }]}>
                 {t('household.deleteHousehold')}
               </Text>
             </TouchableOpacity>
-          )}
-          {/* Last-admin error lives here, contextually below the leave action */}
-          {!pendingAction && error && (
-            <Text style={[styles.dangerError, { color: c.error, borderTopColor: c.secondary }]}>{error}</Text>
-          )}
-        </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Confirm sheet — fixed bottom panel, always visible regardless of scroll */}
@@ -462,6 +461,17 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 14,
+    fontFamily: theme.fonts.label,
+  },
+
+  leaveRow: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  leaveText: {
+    fontSize: 15,
     fontFamily: theme.fonts.label,
   },
 
