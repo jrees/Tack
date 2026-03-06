@@ -113,5 +113,5 @@ export function filterSuggestions(
     if (prefix.length + contains.length >= limit * 2) break   // early exit
   }
 
-  return [...prefix, ...contains].slice(0, limit)
+  return [...prefix, ...contains].slice(0, limit).sort((a, b) => a.localeCompare(b))
 }
