@@ -164,6 +164,7 @@ function SuggestionChips({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={chipStyles.scroll}
       contentContainerStyle={chipStyles.row}
       keyboardShouldPersistTaps="handled"
     >
@@ -181,17 +182,23 @@ function SuggestionChips({
 }
 
 const chipStyles = StyleSheet.create({
+  scroll: {
+    flexGrow: 0,   // prevents the ScrollView from expanding to fill remaining space
+    flexShrink: 0,
+  },
   row: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: theme.spacing.sm,
     paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
   },
   chip: {
     borderWidth: 1,
     borderRadius: theme.radius.full,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs + 2,
+    alignSelf: 'flex-start',
   },
   label: { fontSize: 13 },
 })
@@ -381,6 +388,7 @@ export default function ListDetailScreen() {
 
         {/* Items */}
         <FlatList
+          style={{ flex: 1 }}
           data={listData}
           keyExtractor={(item, idx) =>
             '__separator' in item ? 'separator' : (item as ListItem).id
