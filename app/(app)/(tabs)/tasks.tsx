@@ -12,6 +12,7 @@ import {
   Platform,
   ActivityIndicator,
   Pressable,
+  useWindowDimensions,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useTranslation } from 'react-i18next'
@@ -98,10 +99,12 @@ function nextMonthDay(day: number): Date {
   return new Date(today.getFullYear(), today.getMonth() + 1, day)
 }
 
-function statusDotColor(status: Task['status'], c: typeof theme.colors.light | typeof theme.colors.dark): string {
-  if (status === 'done') return c.success
-  if (status === 'in_progress') return c.primary
-  return c.border
+/** A done task counts as "recent" if completed within the last 7 days (or has no timestamp). */
+function isRecentlyDone(task: Task): boolean {
+  if (!task.completed_at) return true
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  return new Date(task.completed_at) >= sevenDaysAgo
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +186,7 @@ function TaskCard({ task, subtasks, onPress, scheme }: TaskCardProps) {
   const c = theme.colors[scheme]
   const { members } = useHouseholdStore()
   const { user } = useAuthStore()
+  const { updateTask } = useTaskStore()
 
   const assignee = task.assigned_to
     ? members.find(m => m.user_id === task.assigned_to)
@@ -198,6 +202,10 @@ function TaskCard({ task, subtasks, onPress, scheme }: TaskCardProps) {
   const totalSubs = subtasks.length
   const isDone = task.status === 'done'
 
+  const handleToggle = () => {
+    updateTask(task.id, { status: isDone ? 'todo' : 'done' })
+  }
+
   return (
     <TouchableOpacity
       style={[
@@ -209,7 +217,13 @@ function TaskCard({ task, subtasks, onPress, scheme }: TaskCardProps) {
       activeOpacity={0.75}
     >
       <View style={styles.cardRow}>
-        <View style={[styles.statusDot, { backgroundColor: statusDotColor(task.status, c) }]} />
+        <TouchableOpacity onPress={handleToggle} hitSlop={8} style={styles.statusBtn} activeOpacity={0.6}>
+          <Ionicons
+            name={isDone ? 'checkmark-circle' : task.status === 'in_progress' ? 'ellipse' : 'ellipse-outline'}
+            size={24}
+            color={isDone ? c.success : task.status === 'in_progress' ? c.primary : c.border}
+          />
+        </TouchableOpacity>
 
         <View style={styles.cardContent}>
           <Text
@@ -346,7 +360,8 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
     }
     setSaving(true)
     try {
-      const dueDateIso = dueDate ? dueDate.toISOString().split('T')[0] : null
+      const validDate = dueDate && !isNaN(dueDate.getTime()) ? dueDate : null
+      const dueDateIso = validDate ? validDate.toISOString().split('T')[0] : null
       if (mode === 'create') {
         await createTask({
           household_id: householdId,
@@ -397,11 +412,12 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
   const handleDateChange = (_event: DateTimePickerEvent, selected?: Date) => {
     // On Android the picker closes itself; on iOS we close it manually
     if (Platform.OS !== 'ios') setShowDatePicker(false)
-    if (selected) setDueDate(selected)
+    // Guard against invalid Date objects that Android's picker can occasionally emit
+    if (selected && !isNaN(selected.getTime())) setDueDate(selected)
   }
 
   // Recurrence: null means "don't repeat"; switching rules clears sub-options
-  // but auto-derives them from an already-set due date for convenience.
+  // and auto-derives the day from existing due date (or today as fallback).
   const handleRecurrenceChange = (rule: RecurrenceRule | null) => {
     if (rule === null) {
       setIsRecurring(false)
@@ -412,13 +428,16 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
     }
     setIsRecurring(true)
     setRecurrenceRule(rule)
-    // Auto-derive sub-options from existing due date when switching rules
     if (rule === 'weekly') {
       setRecurrenceDayOfMonth(null)
-      setRecurrenceDayOfWeek(dueDate ? dueDate.getDay() : null)
+      const day = dueDate ? dueDate.getDay() : new Date().getDay()
+      setRecurrenceDayOfWeek(day)
+      if (!dueDate) setDueDate(nextWeekday(day))
     } else if (rule === 'monthly') {
       setRecurrenceDayOfWeek(null)
-      setRecurrenceDayOfMonth(dueDate ? dueDate.getDate() : null)
+      const day = dueDate ? dueDate.getDate() : new Date().getDate()
+      setRecurrenceDayOfMonth(day)
+      if (!dueDate) setDueDate(nextMonthDay(day))
     } else {
       setRecurrenceDayOfWeek(null)
       setRecurrenceDayOfMonth(null)
@@ -441,45 +460,53 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
     return uid === userId ? t('tasks.you') : (m.profile.display_name ?? t('tasks.member'))
   }
 
+  const { height: screenHeight } = useWindowDimensions()
+
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: c.background }}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.sheetOverlay}>
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={[styles.sheetContainer, { backgroundColor: c.background, maxHeight: screenHeight * 0.92 }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: c.border }]} />
 
-          {/* Header bar */}
-          <View style={[styles.modalHeader, { borderBottomColor: c.border }]}>
-            <TouchableOpacity onPress={onClose} style={styles.modalHeaderBtn} hitSlop={12}>
-              <Text style={[styles.modalCancel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
-                {t('common.cancel')}
+            {/* Header bar */}
+            <View style={[styles.modalHeader, { borderBottomColor: c.border }]}>
+              <TouchableOpacity onPress={onClose} style={styles.modalHeaderBtn} hitSlop={12}>
+                <Text style={[styles.modalCancel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
+                  {t('common.cancel')}
+                </Text>
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>
+                {mode === 'create' ? t('tasks.newTask') : t('tasks.editTask')}
               </Text>
-            </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>
-              {mode === 'create' ? t('tasks.newTask') : t('tasks.editTask')}
-            </Text>
-            <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.modalHeaderBtn, styles.modalSaveBtn]} hitSlop={12}>
-              {saving
-                ? <ActivityIndicator size="small" color={c.primary} />
-                : <Text style={[styles.modalSave, { color: c.primary, fontFamily: theme.fonts.label }]}>
-                    {t('common.save')}
-                  </Text>
-              }
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.modalHeaderBtn, styles.modalSaveBtn]} hitSlop={12}>
+                {saving
+                  ? <ActivityIndicator size="small" color={c.primary} />
+                  : <Text style={[styles.modalSave, { color: c.primary, fontFamily: theme.fonts.label }]}>
+                      {t('common.save')}
+                    </Text>
+                }
+              </TouchableOpacity>
+            </View>
 
-          <ScrollView
-            contentContainerStyle={styles.modalBody}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+            <ScrollView
+              contentContainerStyle={styles.modalBody}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
             {/* Title */}
+            <Text style={[styles.fieldLabel, { color: c.textSecondary, fontFamily: theme.fonts.label, marginTop: 0 }]}>
+              {t('tasks.taskTitle')}
+            </Text>
             <TextInput
               style={[
                 styles.titleInput,
-                { color: c.text, borderBottomColor: titleError ? c.error : c.border, fontFamily: theme.fonts.label },
+                { color: c.text, borderColor: titleError ? c.error : c.border, backgroundColor: c.surface, fontFamily: theme.fonts.body },
               ]}
               value={title}
               onChangeText={v => { setTitle(v); if (v.trim()) setTitleError('') }}
-              placeholder={t('tasks.taskTitlePlaceholder')}
+              placeholder={t('tasks.taskTitle')}
               placeholderTextColor={c.textMuted}
               returnKeyType="next"
               autoFocus={mode === 'create'}
@@ -568,7 +595,7 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
               >
                 <Ionicons name="calendar-outline" size={16} color={dueDate ? c.primary : c.textMuted} />
                 <Text style={[styles.dateBtnText, { color: dueDate ? c.text : c.textMuted, fontFamily: theme.fonts.body }]}>
-                  {dueDate ? formatDueDate(dueDate.toISOString(), t as (key: string) => string) : t('tasks.noDueDate')}
+                  {dueDate && !isNaN(dueDate.getTime()) ? formatDueDate(dueDate.toISOString(), t as (key: string) => string) : t('tasks.noDueDate')}
                 </Text>
               </TouchableOpacity>
               {dueDate && (
@@ -597,61 +624,67 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
               scheme={scheme}
             />
 
-            {/* Weekly sub-picker: day of week */}
+            {/* Weekly sub-picker: fixed 7-button row, no scroll */}
             {isRecurring && recurrenceRule === 'weekly' && (
               <>
                 <Text style={[styles.fieldLabel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
                   {t('tasks.repeatsOn')}
                 </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
+                <View style={styles.weekdayRow}>
                   {WEEKDAYS.map(day => {
                     const selected = recurrenceDayOfWeek === day
                     return (
                       <TouchableOpacity
                         key={day}
-                        style={[styles.pill, {
-                          borderColor: selected ? c.primary : c.border,
-                          backgroundColor: selected ? c.primaryLight : c.surface,
-                        }]}
+                        style={[
+                          styles.weekdayBtn,
+                          {
+                            borderColor: selected ? c.primary : c.border,
+                            backgroundColor: selected ? c.primaryLight : c.surface,
+                          },
+                        ]}
                         onPress={() => handleWeekdaySelect(day)}
                         activeOpacity={0.7}
                       >
-                        <Text style={[styles.pillText, { color: selected ? c.primary : c.textSecondary, fontFamily: theme.fonts.label }]}>
+                        <Text style={[styles.weekdayBtnText, { color: selected ? c.primary : c.textSecondary, fontFamily: theme.fonts.label }]}>
                           {(t as (k: string) => string)(`tasks.weekdays.${day}`)}
                         </Text>
                       </TouchableOpacity>
                     )
                   })}
-                </ScrollView>
+                </View>
               </>
             )}
 
-            {/* Monthly sub-picker: day of month */}
+            {/* Monthly sub-picker: compact tap-to-select grid, all 31 days visible */}
             {isRecurring && recurrenceRule === 'monthly' && (
               <>
                 <Text style={[styles.fieldLabel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
                   {t('tasks.dayOfMonth')}
                 </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
+                <View style={styles.dayGrid}>
                   {MONTH_DAYS.map(day => {
                     const selected = recurrenceDayOfMonth === day
                     return (
                       <TouchableOpacity
                         key={day}
-                        style={[styles.dayPill, {
-                          borderColor: selected ? c.primary : c.border,
-                          backgroundColor: selected ? c.primaryLight : c.surface,
-                        }]}
+                        style={[
+                          styles.dayCell,
+                          {
+                            borderColor: selected ? c.primary : c.border,
+                            backgroundColor: selected ? c.primaryLight : c.surface,
+                          },
+                        ]}
                         onPress={() => handleMonthDaySelect(day)}
                         activeOpacity={0.7}
                       >
-                        <Text style={[styles.pillText, { color: selected ? c.primary : c.textSecondary, fontFamily: theme.fonts.label }]}>
+                        <Text style={[styles.dayCellText, { color: selected ? c.primary : c.textSecondary, fontFamily: theme.fonts.label }]}>
                           {day}
                         </Text>
                       </TouchableOpacity>
                     )
                   })}
-                </ScrollView>
+                </View>
               </>
             )}
 
@@ -723,9 +756,72 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
                 }
               </TouchableOpacity>
             )}
-          </ScrollView>
+            </ScrollView>
+          </View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
+    </Modal>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// CompletedTasksModal — full history of done tasks
+// ---------------------------------------------------------------------------
+
+type CompletedTasksModalProps = {
+  visible: boolean
+  tasks: Task[]
+  subtasks: Record<string, TaskSubtask[]>
+  scheme: ColorScheme
+  onClose: () => void
+  onSelectTask: (task: Task) => void
+}
+
+function CompletedTasksModal({ visible, tasks, subtasks, scheme, onClose, onSelectTask }: CompletedTasksModalProps) {
+  const { t } = useTranslation()
+  const c = theme.colors[scheme]
+  const { height: screenHeight } = useWindowDimensions()
+
+  const sorted = [...tasks].sort((a, b) => {
+    if (!a.completed_at && !b.completed_at) return 0
+    if (!a.completed_at) return 1
+    if (!b.completed_at) return -1
+    return b.completed_at.localeCompare(a.completed_at)
+  })
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.sheetOverlay}>
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
+        <View style={[styles.sheetContainer, { backgroundColor: c.background, maxHeight: screenHeight * 0.85 }]}>
+          <View style={[styles.sheetHandle, { backgroundColor: c.border }]} />
+          <View style={[styles.modalHeader, { borderBottomColor: c.border }]}>
+            <View style={styles.modalHeaderBtn} />
+            <Text style={[styles.modalTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>
+              {t('tasks.allDoneTitle')}
+            </Text>
+            <TouchableOpacity onPress={onClose} style={[styles.modalHeaderBtn, styles.modalSaveBtn]} hitSlop={12}>
+              <Text style={[styles.modalSave, { color: c.primary, fontFamily: theme.fonts.label }]}>
+                {t('common.done')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            contentContainerStyle={[styles.modalBody, { paddingTop: theme.spacing.sm }]}
+            showsVerticalScrollIndicator={false}
+          >
+            {sorted.map(task => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                subtasks={subtasks[task.id] ?? []}
+                onPress={() => { onClose(); setTimeout(() => onSelectTask(task), 300) }}
+                scheme={scheme}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      </View>
     </Modal>
   )
 }
@@ -747,6 +843,7 @@ export default function TasksScreen() {
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [showAllDone, setShowAllDone] = useState(false)
+  const [showCompletedModal, setShowCompletedModal] = useState(false)
 
   const householdId = currentHousehold?.id ?? ''
 
@@ -776,8 +873,9 @@ export default function TasksScreen() {
 
   const todoTasks = tasks.filter(t => t.status === 'todo')
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress')
-  const doneTasks = tasks.filter(t => t.status === 'done')
-  const visibleDoneTasks = showAllDone ? doneTasks : doneTasks.slice(0, 3)
+  const allDoneTasks = tasks.filter(t => t.status === 'done')
+  const recentDoneTasks = allDoneTasks.filter(isRecentlyDone)
+  const visibleDoneTasks = showAllDone ? recentDoneTasks : recentDoneTasks.slice(0, 3)
 
   const renderTask = useCallback((task: Task) => (
     <TaskCard
@@ -855,12 +953,12 @@ export default function TasksScreen() {
                 </>
               )}
 
-              {/* Done — collapsed to 3, expandable */}
-              {doneTasks.length > 0 && (
+              {/* Done — recent 7 days, collapsed to 3; history via modal */}
+              {allDoneTasks.length > 0 && (
                 <>
-                  <SectionHeader label={t('tasks.statuses.done')} count={doneTasks.length} scheme={scheme} />
+                  <SectionHeader label={t('tasks.statuses.done')} count={recentDoneTasks.length} scheme={scheme} />
                   {visibleDoneTasks.map(renderTask)}
-                  {doneTasks.length > 3 && (
+                  {recentDoneTasks.length > 3 && (
                     <TouchableOpacity
                       style={styles.showMoreBtn}
                       onPress={() => setShowAllDone(v => !v)}
@@ -869,10 +967,25 @@ export default function TasksScreen() {
                       <Text style={[styles.showMoreText, { color: c.primary, fontFamily: theme.fonts.label }]}>
                         {showAllDone
                           ? t('tasks.collapseDone')
-                          : t('tasks.showAllDone', { count: doneTasks.length })}
+                          : t('tasks.showAllDone', { count: recentDoneTasks.length })}
                       </Text>
                     </TouchableOpacity>
                   )}
+                  <TouchableOpacity
+                    style={[styles.viewAllDoneBtn, { borderColor: c.border }]}
+                    onPress={() => setShowCompletedModal(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="time-outline" size={15} color={c.textSecondary} />
+                    <Text style={[styles.viewAllDoneText, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
+                      {t('tasks.viewAllDone')}
+                    </Text>
+                    <View style={[styles.countBadge, { backgroundColor: c.border }]}>
+                      <Text style={[styles.countText, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
+                        {allDoneTasks.length}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </>
               )}
             </>
@@ -888,6 +1001,14 @@ export default function TasksScreen() {
         userId={user?.id ?? ''}
         scheme={scheme}
         onClose={() => setModalVisible(false)}
+      />
+      <CompletedTasksModal
+        visible={showCompletedModal}
+        tasks={allDoneTasks}
+        subtasks={subtasks}
+        scheme={scheme}
+        onClose={() => setShowCompletedModal(false)}
+        onSelectTask={openEdit}
       />
     </SafeAreaView>
   )
@@ -951,6 +1072,18 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   showMoreText: { fontSize: 14 },
+  viewAllDoneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
+  },
+  viewAllDoneText: { fontSize: 13, flex: 1 },
 
   // Section header
   sectionHeader: {
@@ -985,7 +1118,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.sm,
   },
-  statusDot: { width: 10, height: 10, borderRadius: 5 },
+  statusBtn: { justifyContent: 'center', alignItems: 'center' },
   cardContent: { flex: 1 },
   cardTitle: { fontSize: 15, marginBottom: 4 },
   cardTitleDone: { textDecorationLine: 'line-through' },
@@ -1008,6 +1141,25 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   metaText: { fontSize: 12 },
+
+  // Bottom sheet
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  sheetContainer: {
+    borderTopLeftRadius: theme.radius.lg,
+    borderTopRightRadius: theme.radius.lg,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: theme.radius.full,
+    alignSelf: 'center',
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
 
   // Modal
   modalHeader: {
@@ -1039,9 +1191,11 @@ const styles = StyleSheet.create({
   },
   fieldError: { fontSize: 13, marginTop: theme.spacing.xs },
   titleInput: {
-    fontSize: 22,
-    paddingVertical: theme.spacing.sm,
-    borderBottomWidth: 1,
+    fontSize: 16,
+    height: 48,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1.5,
   },
   descInput: {
     fontSize: 15,
@@ -1061,16 +1215,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 6,
   },
-  // Compact square pill for numeric day-of-month picker
-  dayPill: {
+  pillText: { fontSize: 13 },
+
+  // Fixed 7-button weekday row
+  weekdayRow: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  weekdayBtn: {
+    flex: 1,
+    height: 40,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
-    width: 36,
-    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pillText: { fontSize: 13 },
+  weekdayBtnText: { fontSize: 12 },
+
+  // Day-of-month grid
+  dayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  dayCell: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayCellText: { fontSize: 13 },
 
   // Date picker trigger
   dateRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },

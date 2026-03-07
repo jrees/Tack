@@ -165,6 +165,8 @@
     "subtasks": "Subtasks",
     "showAllDone": "Show all {{count}} completed",
     "collapseDone": "Hide completed",
+    "viewAllDone": "View all completed",
+    "allDoneTitle": "All completed",
     "addSubtask": "Add subtask",
     "subtaskPlaceholder": "Add a step…",
     "subtasksProgress": "{{done}}/{{total}} done",
