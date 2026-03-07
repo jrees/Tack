@@ -21,7 +21,7 @@ import { theme, type ColorScheme } from '@/lib/theme'
 import { useTaskStore } from '@/stores/taskStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useHouseholdStore } from '@/stores/householdStore'
-import type { Task, TaskSubtask, RecurrenceRule, TaskCategory } from '@/types/database'
+import type { Task, TaskSubtask, RecurrenceRule } from '@/types/database'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -35,14 +35,10 @@ const RECURRENCE_RULES: Array<{ value: RecurrenceRule | null; labelKey: string }
   { value: 'yearly', labelKey: 'tasks.recurrenceRules.yearly' },
 ]
 
-const TASK_CATEGORIES: Array<{ value: TaskCategory | null; labelKey: string }> = [
-  { value: null, labelKey: 'tasks.noCategory' },
-  { value: 'home', labelKey: 'tasks.categories.home' },
-  { value: 'shopping', labelKey: 'tasks.categories.shopping' },
-  { value: 'health', labelKey: 'tasks.categories.health' },
-  { value: 'finance', labelKey: 'tasks.categories.finance' },
-  { value: 'other', labelKey: 'tasks.categories.other' },
-]
+// Day indices 0 (Sun) – 6 (Sat), matching Date.getDay()
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6]
+// Day-of-month options 1–31
+const MONTH_DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
 
 const TASK_STATUSES: Array<{ value: Task['status']; labelKey: string }> = [
   { value: 'todo', labelKey: 'tasks.statuses.todo' },
@@ -81,6 +77,25 @@ function formatDueDate(iso: string, t: (key: string) => string): string {
     return `${dayNames[due.getDay()]} ${due.getDate()}`
   }
   return `${due.getDate()} ${monthNames[due.getMonth()]}`
+}
+
+/** Returns the next (or current) occurrence of a given weekday (0=Sun). */
+function nextWeekday(dayOfWeek: number): Date {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diff = (dayOfWeek - today.getDay() + 7) % 7
+  const next = new Date(today)
+  next.setDate(today.getDate() + diff)
+  return next
+}
+
+/** Returns the next (or current) occurrence of a given day-of-month (1–31). */
+function nextMonthDay(day: number): Date {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const thisMonth = new Date(today.getFullYear(), today.getMonth(), day)
+  if (thisMonth >= today) return thisMonth
+  return new Date(today.getFullYear(), today.getMonth() + 1, day)
 }
 
 function statusDotColor(status: Task['status'], c: typeof theme.colors.light | typeof theme.colors.dark): string {
@@ -167,9 +182,16 @@ function TaskCard({ task, subtasks, onPress, scheme }: TaskCardProps) {
   const { t } = useTranslation()
   const c = theme.colors[scheme]
   const { members } = useHouseholdStore()
+  const { user } = useAuthStore()
 
   const assignee = task.assigned_to
     ? members.find(m => m.user_id === task.assigned_to)
+    : null
+
+  const assigneeName = assignee
+    ? assignee.user_id === user?.id
+      ? t('tasks.you')
+      : (assignee.profile.display_name ?? t('tasks.member'))
     : null
 
   const doneSubs = subtasks.filter(s => s.is_done).length
@@ -202,14 +224,6 @@ function TaskCard({ task, subtasks, onPress, scheme }: TaskCardProps) {
           </Text>
 
           <View style={styles.cardMeta}>
-            {task.category && task.category !== 'general' && (
-              <View style={[styles.badge, { backgroundColor: c.primaryLight }]}>
-                <Text style={[styles.badgeText, { color: c.primary, fontFamily: theme.fonts.label }]}>
-                  {t(`tasks.categories.${task.category}`)}
-                </Text>
-              </View>
-            )}
-
             {task.due_date && (
               <View style={styles.metaChip}>
                 <Ionicons name="calendar-outline" size={12} color={c.textSecondary} />
@@ -219,11 +233,11 @@ function TaskCard({ task, subtasks, onPress, scheme }: TaskCardProps) {
               </View>
             )}
 
-            {assignee && (
+            {assigneeName && (
               <View style={styles.metaChip}>
                 <Ionicons name="person-outline" size={12} color={c.textSecondary} />
                 <Text style={[styles.metaText, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>
-                  {assignee.profile.display_name ?? '?'}
+                  {assigneeName}
                 </Text>
               </View>
             )}
@@ -275,9 +289,10 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
   const [assignedTo, setAssignedTo] = useState<string | null>(null)
   const [dueDate, setDueDate] = useState<Date | null>(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
-  const [category, setCategory] = useState<TaskCategory | null>(null)
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | null>(null)
+  const [recurrenceDayOfWeek, setRecurrenceDayOfWeek] = useState<number | null>(null)
+  const [recurrenceDayOfMonth, setRecurrenceDayOfMonth] = useState<number | null>(null)
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('')
   const [titleError, setTitleError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -292,19 +307,31 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
       setDescription(task.description ?? '')
       setStatus(task.status)
       setAssignedTo(task.assigned_to)
-      setDueDate(task.due_date ? new Date(task.due_date) : null)
-      setCategory(task.category)
+      const parsedDate = task.due_date ? new Date(task.due_date + 'T12:00:00') : null
+      setDueDate(parsedDate)
       setIsRecurring(task.is_recurring)
       setRecurrenceRule(task.recurrence_rule)
+      // Derive sub-options from existing due date
+      setRecurrenceDayOfWeek(
+        task.is_recurring && task.recurrence_rule === 'weekly' && parsedDate
+          ? parsedDate.getDay()
+          : null
+      )
+      setRecurrenceDayOfMonth(
+        task.is_recurring && task.recurrence_rule === 'monthly' && parsedDate
+          ? parsedDate.getDate()
+          : null
+      )
     } else {
       setTitle('')
       setDescription('')
       setStatus('todo')
       setAssignedTo(null)
       setDueDate(null)
-      setCategory(null)
       setIsRecurring(false)
       setRecurrenceRule(null)
+      setRecurrenceDayOfWeek(null)
+      setRecurrenceDayOfMonth(null)
     }
     setNewSubtaskTitle('')
     setTitleError('')
@@ -329,7 +356,6 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
           status,
           assigned_to: assignedTo,
           due_date: dueDateIso,
-          category,
           is_recurring: isRecurring,
           recurrence_rule: isRecurring ? recurrenceRule : null,
         })
@@ -340,7 +366,6 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
           status,
           assigned_to: assignedTo,
           due_date: dueDateIso,
-          category,
           is_recurring: isRecurring,
           recurrence_rule: isRecurring ? recurrenceRule : null,
         })
@@ -375,15 +400,45 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
     if (selected) setDueDate(selected)
   }
 
-  // Recurrence: null means "don't repeat", any rule enables recurring
+  // Recurrence: null means "don't repeat"; switching rules clears sub-options
+  // but auto-derives them from an already-set due date for convenience.
   const handleRecurrenceChange = (rule: RecurrenceRule | null) => {
     if (rule === null) {
       setIsRecurring(false)
       setRecurrenceRule(null)
-    } else {
-      setIsRecurring(true)
-      setRecurrenceRule(rule)
+      setRecurrenceDayOfWeek(null)
+      setRecurrenceDayOfMonth(null)
+      return
     }
+    setIsRecurring(true)
+    setRecurrenceRule(rule)
+    // Auto-derive sub-options from existing due date when switching rules
+    if (rule === 'weekly') {
+      setRecurrenceDayOfMonth(null)
+      setRecurrenceDayOfWeek(dueDate ? dueDate.getDay() : null)
+    } else if (rule === 'monthly') {
+      setRecurrenceDayOfWeek(null)
+      setRecurrenceDayOfMonth(dueDate ? dueDate.getDate() : null)
+    } else {
+      setRecurrenceDayOfWeek(null)
+      setRecurrenceDayOfMonth(null)
+    }
+  }
+
+  const handleWeekdaySelect = (day: number) => {
+    setRecurrenceDayOfWeek(day)
+    setDueDate(nextWeekday(day))
+  }
+
+  const handleMonthDaySelect = (day: number) => {
+    setRecurrenceDayOfMonth(day)
+    setDueDate(nextMonthDay(day))
+  }
+
+  const memberName = (uid: string) => {
+    const m = members.find(m => m.user_id === uid)
+    if (!m) return t('tasks.member')
+    return uid === userId ? t('tasks.you') : (m.profile.display_name ?? t('tasks.member'))
   }
 
   return (
@@ -483,7 +538,6 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
               </TouchableOpacity>
               {members.map(member => {
                 const selected = assignedTo === member.user_id
-                const name = member.profile.display_name ?? member.user_id.slice(0, 8)
                 return (
                   <TouchableOpacity
                     key={member.user_id}
@@ -495,7 +549,7 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.pillText, { color: selected ? c.primary : c.textSecondary, fontFamily: theme.fonts.label }]}>
-                      {name}
+                      {memberName(member.user_id)}
                     </Text>
                   </TouchableOpacity>
                 )
@@ -532,17 +586,6 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
               />
             )}
 
-            {/* Category */}
-            <Text style={[styles.fieldLabel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
-              {t('tasks.category')}
-            </Text>
-            <SelectPillRow<TaskCategory>
-              options={TASK_CATEGORIES}
-              value={category}
-              onChange={setCategory}
-              scheme={scheme}
-            />
-
             {/* Recurrence */}
             <Text style={[styles.fieldLabel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
               {t('tasks.recurring')}
@@ -553,6 +596,64 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
               onChange={handleRecurrenceChange}
               scheme={scheme}
             />
+
+            {/* Weekly sub-picker: day of week */}
+            {isRecurring && recurrenceRule === 'weekly' && (
+              <>
+                <Text style={[styles.fieldLabel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
+                  {t('tasks.repeatsOn')}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
+                  {WEEKDAYS.map(day => {
+                    const selected = recurrenceDayOfWeek === day
+                    return (
+                      <TouchableOpacity
+                        key={day}
+                        style={[styles.pill, {
+                          borderColor: selected ? c.primary : c.border,
+                          backgroundColor: selected ? c.primaryLight : c.surface,
+                        }]}
+                        onPress={() => handleWeekdaySelect(day)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.pillText, { color: selected ? c.primary : c.textSecondary, fontFamily: theme.fonts.label }]}>
+                          {(t as (k: string) => string)(`tasks.weekdays.${day}`)}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  })}
+                </ScrollView>
+              </>
+            )}
+
+            {/* Monthly sub-picker: day of month */}
+            {isRecurring && recurrenceRule === 'monthly' && (
+              <>
+                <Text style={[styles.fieldLabel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
+                  {t('tasks.dayOfMonth')}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
+                  {MONTH_DAYS.map(day => {
+                    const selected = recurrenceDayOfMonth === day
+                    return (
+                      <TouchableOpacity
+                        key={day}
+                        style={[styles.dayPill, {
+                          borderColor: selected ? c.primary : c.border,
+                          backgroundColor: selected ? c.primaryLight : c.surface,
+                        }]}
+                        onPress={() => handleMonthDaySelect(day)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.pillText, { color: selected ? c.primary : c.textSecondary, fontFamily: theme.fonts.label }]}>
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  })}
+                </ScrollView>
+              </>
+            )}
 
             {/* Subtasks — shown in edit mode only (task must exist to attach subtasks to) */}
             {mode === 'edit' && task && (
@@ -959,6 +1060,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 6,
+  },
+  // Compact square pill for numeric day-of-month picker
+  dayPill: {
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pillText: { fontSize: 13 },
 
