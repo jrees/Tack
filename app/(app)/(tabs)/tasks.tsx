@@ -35,8 +35,8 @@ const RECURRENCE_RULES: Array<{ value: RecurrenceRule | null; labelKey: string }
   { value: 'yearly', labelKey: 'tasks.recurrenceRules.yearly' },
 ]
 
-const TASK_CATEGORIES: Array<{ value: TaskCategory; labelKey: string }> = [
-  { value: 'general', labelKey: 'tasks.categories.general' },
+const TASK_CATEGORIES: Array<{ value: TaskCategory | null; labelKey: string }> = [
+  { value: null, labelKey: 'tasks.noCategory' },
   { value: 'home', labelKey: 'tasks.categories.home' },
   { value: 'shopping', labelKey: 'tasks.categories.shopping' },
   { value: 'health', labelKey: 'tasks.categories.health' },
@@ -436,6 +436,9 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
             )}
 
             {/* Description */}
+            <Text style={[styles.fieldLabel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
+              {t('tasks.description')}
+            </Text>
             <TextInput
               style={[styles.descInput, { color: c.text, backgroundColor: c.surface, borderColor: c.border, fontFamily: theme.fonts.body }]}
               value={description}
@@ -446,16 +449,20 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
               numberOfLines={3}
             />
 
-            {/* Status */}
-            <Text style={[styles.fieldLabel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
-              Status
-            </Text>
-            <SelectPillRow<Task['status']>
-              options={TASK_STATUSES}
-              value={status}
-              onChange={v => setStatus(v ?? 'todo')}
-              scheme={scheme}
-            />
+            {/* Status — only in edit mode; new tasks always start as "to do" */}
+            {mode === 'edit' && (
+              <>
+                <Text style={[styles.fieldLabel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
+                  {t('tasks.statusLabel')}
+                </Text>
+                <SelectPillRow<Task['status']>
+                  options={TASK_STATUSES}
+                  value={status}
+                  onChange={v => setStatus(v ?? 'todo')}
+                  scheme={scheme}
+                />
+              </>
+            )}
 
             {/* Assignee */}
             <Text style={[styles.fieldLabel, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
@@ -522,7 +529,6 @@ function TaskModal({ visible, mode, task, householdId, userId, scheme, onClose }
                 mode="date"
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 onChange={handleDateChange}
-                minimumDate={new Date()}
               />
             )}
 
@@ -639,6 +645,7 @@ export default function TasksScreen() {
   const [modalVisible, setModalVisible] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
+  const [showAllDone, setShowAllDone] = useState(false)
 
   const householdId = currentHousehold?.id ?? ''
 
@@ -669,6 +676,7 @@ export default function TasksScreen() {
   const todoTasks = tasks.filter(t => t.status === 'todo')
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress')
   const doneTasks = tasks.filter(t => t.status === 'done')
+  const visibleDoneTasks = showAllDone ? doneTasks : doneTasks.slice(0, 3)
 
   const renderTask = useCallback((task: Task) => (
     <TaskCard
@@ -711,29 +719,61 @@ export default function TasksScreen() {
         >
           {tasks.length === 0 ? (
             <View style={styles.emptyState}>
+              <Text style={[styles.emptyTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>
+                {t('tasks.emptyTodo')}
+              </Text>
               <Text style={[styles.emptyText, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>
                 {t('tasks.empty')}
               </Text>
+              <TouchableOpacity
+                style={[styles.emptyAddBtn, { backgroundColor: c.primary }]}
+                onPress={openCreate}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={18} color={c.surface} />
+                <Text style={[styles.emptyAddText, { color: c.surface, fontFamily: theme.fonts.label }]}>
+                  {t('tasks.add')}
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <>
-              <SectionHeader label={t('tasks.statuses.todo')} count={todoTasks.length} scheme={scheme} />
-              {todoTasks.length === 0
-                ? <Text style={[styles.emptySection, { color: c.textMuted, fontFamily: theme.fonts.body }]}>{t('tasks.emptyTodo')}</Text>
-                : todoTasks.map(renderTask)
-              }
+              {/* To do — always shown if there are any tasks at all */}
+              {todoTasks.length > 0 && (
+                <>
+                  <SectionHeader label={t('tasks.statuses.todo')} count={todoTasks.length} scheme={scheme} />
+                  {todoTasks.map(renderTask)}
+                </>
+              )}
 
-              <SectionHeader label={t('tasks.statuses.inProgress')} count={inProgressTasks.length} scheme={scheme} />
-              {inProgressTasks.length === 0
-                ? <Text style={[styles.emptySection, { color: c.textMuted, fontFamily: theme.fonts.body }]}>{t('tasks.emptyInProgress')}</Text>
-                : inProgressTasks.map(renderTask)
-              }
+              {/* In progress — only shown when non-empty */}
+              {inProgressTasks.length > 0 && (
+                <>
+                  <SectionHeader label={t('tasks.statuses.inProgress')} count={inProgressTasks.length} scheme={scheme} />
+                  {inProgressTasks.map(renderTask)}
+                </>
+              )}
 
-              <SectionHeader label={t('tasks.statuses.done')} count={doneTasks.length} scheme={scheme} />
-              {doneTasks.length === 0
-                ? <Text style={[styles.emptySection, { color: c.textMuted, fontFamily: theme.fonts.body }]}>{t('tasks.emptyDone')}</Text>
-                : doneTasks.map(renderTask)
-              }
+              {/* Done — collapsed to 3, expandable */}
+              {doneTasks.length > 0 && (
+                <>
+                  <SectionHeader label={t('tasks.statuses.done')} count={doneTasks.length} scheme={scheme} />
+                  {visibleDoneTasks.map(renderTask)}
+                  {doneTasks.length > 3 && (
+                    <TouchableOpacity
+                      style={styles.showMoreBtn}
+                      onPress={() => setShowAllDone(v => !v)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.showMoreText, { color: c.primary, fontFamily: theme.fonts.label }]}>
+                        {showAllDone
+                          ? t('tasks.collapseDone')
+                          : t('tasks.showAllDone', { count: doneTasks.length })}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
             </>
           )}
         </ScrollView>
@@ -771,9 +811,9 @@ const styles = StyleSheet.create({
   },
   screenTitle: { fontSize: 28 },
   addFab: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -786,13 +826,30 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.xl,
   },
   listContentEmpty: { flex: 1 },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontSize: 15, textAlign: 'center' },
-  emptySection: {
-    fontSize: 13,
-    marginTop: theme.spacing.xs,
-    marginBottom: theme.spacing.lg,
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.xl,
+    gap: theme.spacing.sm,
   },
+  emptyTitle: { fontSize: 20, textAlign: 'center' },
+  emptyText: { fontSize: 15, textAlign: 'center', marginBottom: theme.spacing.md },
+  emptyAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+  },
+  emptyAddText: { fontSize: 15 },
+  showMoreBtn: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  showMoreText: { fontSize: 14 },
 
   // Section header
   sectionHeader: {
