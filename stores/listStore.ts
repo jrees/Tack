@@ -19,6 +19,8 @@ type ListActions = {
   renameList: (id: string, title: string) => Promise<void>
   pinList: (id: string, pinned: boolean) => Promise<void>
   deleteList: (id: string) => Promise<void>
+  clearChecked: (listId: string) => Promise<void>
+  duplicateList: (listId: string, uncheckAll: boolean) => Promise<List>
   fetchItems: (listId: string) => Promise<void>
   addItem: (fields: { list_id: string; added_by: string; title: string }) => Promise<void>
   toggleItem: (item: ListItem, userId: string) => Promise<void>
@@ -168,6 +170,81 @@ export const useListStore = create<ListStore>((set, get) => ({
         items: rest,
       }
     })
+  },
+
+  /**
+   * Delete all checked items from a list.
+   */
+  clearChecked: async (listId) => {
+    const { error } = await supabase
+      .from('list_items')
+      .delete()
+      .eq('list_id', listId)
+      .eq('is_checked', true)
+
+    if (error) throw error
+
+    set(state => ({
+      items: {
+        ...state.items,
+        [listId]: (state.items[listId] ?? []).filter(i => !i.is_checked),
+      },
+    }))
+  },
+
+  /**
+   * Duplicate a list and all its items.
+   * If uncheckAll is true, all copied items will be unchecked.
+   * The new list is titled "<original title> (copy)".
+   */
+  duplicateList: async (listId, uncheckAll) => {
+    const sourceList = get().lists.find(l => l.id === listId)
+    if (!sourceList) throw new Error('List not found')
+
+    const { data: newList, error: listError } = await supabase
+      .from('lists')
+      .insert({
+        household_id: sourceList.household_id,
+        created_by: sourceList.created_by,
+        title: `${sourceList.title} (copy)`,
+        category: sourceList.category,
+        is_archived: false,
+        is_pinned: false,
+      })
+      .select()
+      .single()
+
+    if (listError) throw listError
+
+    // Fetch source items directly — they may not be loaded in the store yet.
+    const { data: sourceItems, error: itemsReadError } = await supabase
+      .from('list_items')
+      .select('*')
+      .eq('list_id', listId)
+      .order('sort_order', { ascending: true })
+
+    if (itemsReadError) throw itemsReadError
+
+    if (sourceItems && sourceItems.length > 0) {
+      const copies = sourceItems.map(item => ({
+        list_id: newList.id,
+        added_by: item.added_by,
+        title: item.title,
+        sort_order: item.sort_order,
+        is_checked: uncheckAll ? false : item.is_checked,
+        checked_by: uncheckAll ? null : item.checked_by,
+        checked_at: uncheckAll ? null : item.checked_at,
+      }))
+
+      const { error: insertError } = await supabase
+        .from('list_items')
+        .insert(copies)
+
+      if (insertError) throw insertError
+    }
+
+    set(state => ({ lists: sortLists([newList, ...state.lists]) }))
+    return newList
   },
 
   /**

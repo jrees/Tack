@@ -199,6 +199,7 @@ function ActionSheet({
   onClose,
   onRename,
   onPin,
+  onDuplicate,
   onDelete,
   scheme,
 }: {
@@ -207,6 +208,7 @@ function ActionSheet({
   onClose: () => void
   onRename: () => void
   onPin: () => void
+  onDuplicate: () => void
   onDelete: () => void
   scheme: ColorScheme
 }) {
@@ -240,6 +242,13 @@ function ActionSheet({
           />
           <Text style={[sheetStyles.rowText, { color: isPinned ? c.text : c.primary, fontFamily: theme.fonts.label }]}>
             {t(isPinned ? 'lists.unpin' : 'lists.pin')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={sheetStyles.row} onPress={onDuplicate}>
+          <Ionicons name="copy-outline" size={18} color={c.text} />
+          <Text style={[sheetStyles.rowText, { color: c.text, fontFamily: theme.fonts.label }]}>
+            {t('lists.duplicate')}
           </Text>
         </TouchableOpacity>
 
@@ -363,6 +372,59 @@ const confirmStyles = StyleSheet.create({
   btn: { paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.sm },
   btnText: { fontSize: 16 },
 })
+
+// ---------------------------------------------------------------------------
+// Duplicate sheet
+// ---------------------------------------------------------------------------
+
+function DuplicateSheet({
+  visible,
+  list,
+  onClose,
+  onDuplicate,
+  scheme,
+}: {
+  visible: boolean
+  list: List | null
+  onClose: () => void
+  onDuplicate: (uncheckAll: boolean) => void
+  scheme: ColorScheme
+}) {
+  const c = theme.colors[scheme]
+  const { t } = useTranslation()
+  if (!list) return null
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={sheetStyles.overlay} activeOpacity={1} onPress={onClose} />
+      <View style={[sheetStyles.sheet, { backgroundColor: c.surface }]}>
+        <View style={[sheetStyles.handle, { backgroundColor: c.border }]} />
+        <Text style={[sheetStyles.sheetTitle, { color: c.text, fontFamily: theme.fonts.heading }]} numberOfLines={1}>
+          {t('lists.copyTitle')}
+        </Text>
+
+        <TouchableOpacity style={sheetStyles.row} onPress={() => onDuplicate(true)}>
+          <Ionicons name="refresh-outline" size={18} color={c.primary} />
+          <Text style={[sheetStyles.rowText, { color: c.primary, fontFamily: theme.fonts.label }]}>
+            {t('lists.copyUncheck')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={sheetStyles.row} onPress={() => onDuplicate(false)}>
+          <Ionicons name="copy-outline" size={18} color={c.text} />
+          <Text style={[sheetStyles.rowText, { color: c.text, fontFamily: theme.fonts.label }]}>
+            {t('lists.copyKeepChecked')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[sheetStyles.row, sheetStyles.cancelRow]} onPress={onClose}>
+          <Text style={[sheetStyles.cancelText, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
+            {t('common.cancel')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Rename modal
@@ -633,13 +695,14 @@ export default function ListsIndexScreen() {
 
   const household = useHouseholdStore(s => s.currentHousehold)
   const user = useAuthStore(s => s.user)
-  const { lists, items, isLoading, fetchLists, fetchItems, createList, renameList, pinList, deleteList, subscribeToLists } = useListStore()
+  const { lists, items, isLoading, fetchLists, fetchItems, createList, renameList, pinList, deleteList, duplicateList, subscribeToLists } = useListStore()
 
   const [showCreate, setShowCreate] = useState(false)
   const [actionList, setActionList] = useState<List | null>(null)
   const [showAction, setShowAction] = useState(false)
   const [showRename, setShowRename] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [showDuplicate, setShowDuplicate] = useState(false)
 
   useEffect(() => {
     if (!household) return
@@ -679,6 +742,19 @@ export default function ListsIndexScreen() {
     setShowAction(false)
     await pinList(actionList.id, !actionList.is_pinned)
     setActionList(null)
+  }
+
+  const handleDuplicatePrompt = () => {
+    setShowAction(false)
+    setTimeout(() => setShowDuplicate(true), 200)
+  }
+
+  const handleDuplicateConfirm = async (uncheckAll: boolean) => {
+    if (!actionList) return
+    setShowDuplicate(false)
+    const created = await duplicateList(actionList.id, uncheckAll)
+    setActionList(null)
+    router.push(`/(app)/(tabs)/lists/${created.id}`)
   }
 
   const handleDeletePrompt = () => {
@@ -756,7 +832,15 @@ export default function ListsIndexScreen() {
         onClose={() => setShowAction(false)}
         onRename={handleRename}
         onPin={handlePin}
+        onDuplicate={handleDuplicatePrompt}
         onDelete={handleDeletePrompt}
+        scheme={scheme}
+      />
+      <DuplicateSheet
+        visible={showDuplicate}
+        list={actionList}
+        onClose={() => setShowDuplicate(false)}
+        onDuplicate={handleDuplicateConfirm}
         scheme={scheme}
       />
       <RenameModal

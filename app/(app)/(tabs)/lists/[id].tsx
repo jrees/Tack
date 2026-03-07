@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Animated,
+  Modal,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -21,7 +22,7 @@ import { Swipeable } from 'react-native-gesture-handler'
 import { theme, type ColorScheme } from '@/lib/theme'
 import { useListStore } from '@/stores/listStore'
 import { useAuthStore } from '@/stores/authStore'
-import { filterSuggestions } from '@/lib/suggestions'
+import { filterSuggestions, getItemCategory, CORPUS } from '@/lib/suggestions'
 import type { ListItem, List } from '@/types/database'
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -122,12 +123,12 @@ const rowStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
     borderBottomWidth: 1,
     gap: theme.spacing.md,
     paddingRight: theme.spacing.md,
   },
-  checkArea: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  checkArea: { minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' },
   checkbox: {
     width: 22,
     height: 22,
@@ -241,6 +242,79 @@ const emptyStyles = StyleSheet.create({
 })
 
 // ---------------------------------------------------------------------------
+// Header menu sheet
+// ---------------------------------------------------------------------------
+
+function MenuSheet({
+  visible,
+  hasChecked,
+  onClearChecked,
+  onClose,
+  scheme,
+}: {
+  visible: boolean
+  hasChecked: boolean
+  onClearChecked: () => void
+  onClose: () => void
+  scheme: ColorScheme
+}) {
+  const c = theme.colors[scheme]
+  const { t } = useTranslation()
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={menuStyles.overlay} activeOpacity={1} onPress={onClose} />
+      <View style={[menuStyles.sheet, { backgroundColor: c.surface }]}>
+        <View style={[menuStyles.handle, { backgroundColor: c.border }]} />
+
+        <TouchableOpacity
+          style={[menuStyles.row, !hasChecked && menuStyles.rowDisabled]}
+          onPress={hasChecked ? onClearChecked : undefined}
+          disabled={!hasChecked}
+        >
+          <Ionicons name="checkmark-done-outline" size={18} color={hasChecked ? c.text : c.textMuted} />
+          <Text style={[menuStyles.rowText, { color: hasChecked ? c.text : c.textMuted, fontFamily: theme.fonts.label }]}>
+            {t('lists.clearChecked')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[menuStyles.row, menuStyles.cancelRow]} onPress={onClose}>
+          <Text style={[menuStyles.cancelText, { color: c.textSecondary, fontFamily: theme.fonts.label }]}>
+            {t('common.cancel')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  )
+}
+
+const menuStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheet: {
+    borderTopLeftRadius: theme.radius.lg,
+    borderTopRightRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: theme.radius.full,
+    alignSelf: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+  },
+  rowDisabled: { opacity: 0.4 },
+  cancelRow: { marginTop: theme.spacing.xs, justifyContent: 'center' },
+  rowText: { fontSize: 16 },
+  cancelText: { fontSize: 16 },
+})
+
+// ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
 
@@ -259,6 +333,7 @@ export default function ListDetailScreen() {
     addItem,
     toggleItem,
     deleteItem,
+    clearChecked,
     subscribeToItems,
     renameList,
   } = useListStore()
@@ -273,6 +348,17 @@ export default function ListDetailScreen() {
   const [isAdding, setIsAdding] = useState(false)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(list?.title ?? '')
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [showMenu, setShowMenu] = useState(false)
+
+  const toggleGroup = (label: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
+  }
 
   const inputRef = useRef<TextInput>(null)
   const titleRef = useRef<TextInput>(null)
@@ -327,6 +413,11 @@ export default function ListDetailScreen() {
     await deleteItem(item.id, item.list_id)
   }
 
+  const handleClearChecked = async () => {
+    setShowMenu(false)
+    if (id) await clearChecked(id)
+  }
+
   const handleTitleSave = async () => {
     const trimmed = titleDraft.trim()
     if (!trimmed || !id || trimmed === list?.title) {
@@ -338,19 +429,53 @@ export default function ListDetailScreen() {
     await renameList(id, trimmed)
   }
 
-  type RowData = ListItem | { __separator: true }
+  type RowData =
+    | { type: 'item'; item: ListItem }
+    | { type: 'group-header'; label: string; collapsed: boolean; count: number }
+    | { type: 'separator' }
 
-  const listData: RowData[] = [
-    ...unchecked,
-    ...(checked.length > 0 ? [{ __separator: true } as const] : []),
-    ...checked,
-  ]
+  const corpus = list ? CORPUS[list.category] : undefined
+
+  const listData: RowData[] = (() => {
+    if (corpus) {
+      // Grouped by sub-category, ordered to match corpus, with 'Other' last.
+      const categoryOrder = corpus.map(c => c.label)
+      const groups = new Map<string, ListItem[]>()
+      for (const item of unchecked) {
+        const cat = getItemCategory(item.title, list!.category) ?? 'Other'
+        if (!groups.has(cat)) groups.set(cat, [])
+        groups.get(cat)!.push(item)
+      }
+      const rows: RowData[] = []
+      for (const label of [...categoryOrder, 'Other']) {
+        const groupItems = groups.get(label)
+        if (!groupItems?.length) continue
+        const collapsed = collapsedGroups.has(label)
+        rows.push({ type: 'group-header', label, collapsed, count: groupItems.length })
+        if (!collapsed) {
+          for (const item of groupItems) rows.push({ type: 'item', item })
+        }
+      }
+      if (checked.length > 0) {
+        rows.push({ type: 'separator' })
+        for (const item of checked) rows.push({ type: 'item', item })
+      }
+      return rows
+    }
+
+    // Flat list for categories without a corpus (gifts, general).
+    return [
+      ...unchecked.map(item => ({ type: 'item' as const, item })),
+      ...(checked.length > 0 ? [{ type: 'separator' as const }] : []),
+      ...checked.map(item => ({ type: 'item' as const, item })),
+    ]
+  })()
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, { backgroundColor: c.background }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -361,42 +486,54 @@ export default function ListDetailScreen() {
             </Text>
           </TouchableOpacity>
 
-          {isEditingTitle ? (
-            <TextInput
-              ref={titleRef}
-              style={[styles.titleInput, { color: c.text, borderColor: c.primary, fontFamily: theme.fonts.heading }]}
-              value={titleDraft}
-              onChangeText={setTitleDraft}
-              onBlur={handleTitleSave}
-              onSubmitEditing={handleTitleSave}
-              autoFocus
-              returnKeyType="done"
-            />
-          ) : (
-            <TouchableOpacity
-              onPress={() => {
-                setIsEditingTitle(true)
-                setTimeout(() => titleRef.current?.focus(), 50)
-              }}
-            >
-              <Text style={[styles.title, { color: c.text, fontFamily: theme.fonts.heading }]} numberOfLines={1}>
-                {list?.title ?? ''}
-              </Text>
-            </TouchableOpacity>
-          )}
+          <View style={styles.headerTitle}>
+            {isEditingTitle ? (
+              <TextInput
+                ref={titleRef}
+                style={[styles.titleInput, { color: c.text, borderColor: c.primary, fontFamily: theme.fonts.heading }]}
+                value={titleDraft}
+                onChangeText={setTitleDraft}
+                onBlur={handleTitleSave}
+                onSubmitEditing={handleTitleSave}
+                autoFocus
+                returnKeyType="done"
+              />
+            ) : (
+              <TouchableOpacity
+                onPress={() => {
+                  setIsEditingTitle(true)
+                  setTimeout(() => titleRef.current?.focus(), 50)
+                }}
+              >
+                <Text style={[styles.title, { color: c.text, fontFamily: theme.fonts.heading }]} numberOfLines={1}>
+                  {list?.title ?? ''}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.menuBtn}
+            onPress={() => setShowMenu(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={22} color={c.textMuted} />
+          </TouchableOpacity>
         </View>
 
         {/* Items */}
         <FlatList
           style={{ flex: 1 }}
           data={listData}
-          keyExtractor={(item, idx) =>
-            '__separator' in item ? 'separator' : (item as ListItem).id
+          keyExtractor={(row, idx) =>
+            row.type === 'item' ? row.item.id
+            : row.type === 'group-header' ? `header-${row.label}`
+            : 'separator'
           }
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => {
-            if ('__separator' in item) {
+          renderItem={({ item: row }) => {
+            if (row.type === 'separator') {
               return (
                 <View style={styles.separatorContainer}>
                   <View style={[styles.separatorLine, { backgroundColor: c.border }]} />
@@ -407,12 +544,36 @@ export default function ListDetailScreen() {
                 </View>
               )
             }
-            const listItem = item as ListItem
+            if (row.type === 'group-header') {
+              return (
+                <TouchableOpacity
+                  style={styles.groupHeader}
+                  onPress={() => toggleGroup(row.label)}
+                  hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }}
+                >
+                  <Text style={[styles.groupHeaderText, { color: c.textMuted, fontFamily: theme.fonts.label }]}>
+                    {row.label.toUpperCase()}
+                  </Text>
+                  <View style={styles.groupHeaderRight}>
+                    {row.collapsed && (
+                      <Text style={[styles.groupHeaderCount, { color: c.textMuted, fontFamily: theme.fonts.body }]}>
+                        {row.count}
+                      </Text>
+                    )}
+                    <Ionicons
+                      name={row.collapsed ? 'chevron-forward' : 'chevron-down'}
+                      size={13}
+                      color={c.textMuted}
+                    />
+                  </View>
+                </TouchableOpacity>
+              )
+            }
             return (
               <ItemRow
-                item={listItem}
-                onToggle={() => handleToggle(listItem)}
-                onDelete={() => handleDelete(listItem)}
+                item={row.item}
+                onToggle={() => handleToggle(row.item)}
+                onDelete={() => handleDelete(row.item)}
                 scheme={scheme}
               />
             )
@@ -464,6 +625,14 @@ export default function ListDetailScreen() {
           </Text>
         )}
       </KeyboardAvoidingView>
+
+      <MenuSheet
+        visible={showMenu}
+        hasChecked={checked.length > 0}
+        onClearChecked={handleClearChecked}
+        onClose={() => setShowMenu(false)}
+        scheme={scheme}
+      />
     </SafeAreaView>
   )
 }
@@ -474,6 +643,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.sm,
     paddingBottom: theme.spacing.md,
+  },
+  headerTitle: { flex: 1 },
+  menuBtn: {
+    minWidth: 36,
+    minHeight: 36,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   backBtn: {
     flexDirection: 'row',
@@ -497,6 +673,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.xl,
   },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.xs,
+  },
+  groupHeaderText: {
+    fontSize: 11,
+    letterSpacing: 0.8,
+  },
+  groupHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  groupHeaderCount: {
+    fontSize: 11,
+  },
   separatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -508,19 +703,20 @@ const styles = StyleSheet.create({
   addBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     borderTopWidth: 1,
     gap: theme.spacing.sm,
   },
   addInput: {
     flex: 1,
-    fontSize: 16,
-    paddingVertical: theme.spacing.sm,
-    minHeight: 44,
+    fontSize: 15,
+    paddingVertical: theme.spacing.xs,
+    minHeight: 38,
   },
   addButton: {
-    width: 44,
-    height: 44,
+    width: 38,
+    height: 38,
     borderRadius: theme.radius.full,
     alignItems: 'center',
     justifyContent: 'center',

@@ -16,6 +16,8 @@ export type Json =
 
 export type MemberRole = 'admin' | 'member'
 export type TaskStatus = 'todo' | 'in_progress' | 'done'
+export type RecurrenceRule = 'daily' | 'weekly' | 'monthly' | 'yearly'
+export type TaskCategory = 'general' | 'home' | 'shopping' | 'health' | 'finance' | 'other'
 export type ListCategory = 'shopping' | 'gifts' | 'packing' | 'general'
 export type SubscriptionTier = 'free' | 'trial' | 'pro' | 'gifted'
 
@@ -99,8 +101,8 @@ export type Database = {
           status: TaskStatus
           due_date: string | null
           is_recurring: boolean
-          recurrence_rule: string | null
-          category: string | null
+          recurrence_rule: RecurrenceRule | null
+          category: TaskCategory | null
           created_at: string
           completed_at: string | null
         }
@@ -114,8 +116,8 @@ export type Database = {
           status?: TaskStatus
           due_date?: string | null
           is_recurring?: boolean
-          recurrence_rule?: string | null
-          category?: string | null
+          recurrence_rule?: RecurrenceRule | null
+          category?: TaskCategory | null
           created_at?: string
           completed_at?: string | null
         }
@@ -126,8 +128,8 @@ export type Database = {
           status?: TaskStatus
           due_date?: string | null
           is_recurring?: boolean
-          recurrence_rule?: string | null
-          category?: string | null
+          recurrence_rule?: RecurrenceRule | null
+          category?: TaskCategory | null
           completed_at?: string | null
         }
         Relationships: []

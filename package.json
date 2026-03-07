@@ -13,6 +13,7 @@
     "@expo-google-fonts/nunito": "^0.4.2",
     "@expo/metro-runtime": "^55.0.6",
     "@expo/vector-icons": "^15.0.2",
+    "@react-native-community/datetimepicker": "8.6.0",
     "@sentry/react-native": "~7.11.0",
     "@supabase/supabase-js": "^2.98.0",
     "expo": "~55.0.4",
